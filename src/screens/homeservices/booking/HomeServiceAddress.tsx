@@ -15,7 +15,10 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { getOfferingById, getProviderById } from '../../../data/mockHomeServices';
+import { getProviderDetailsById } from '../../../services/homeCareService';
+import { AuthPost, ENDPOINTS } from '../../../services';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelector } from 'react-redux';
 import { HS_COLORS, hsStyles } from '../homeServiceTheme';
 import { SPACING, moderateScale, LAYOUT } from '../../../utils/responsive';
 import Location, { PatientLocation } from '../../../components/Location';
@@ -27,12 +30,12 @@ export type AddressFormData = {
   landmark?: string;
   pincode: string;
   cityState: string;
+  patientAddressId?: string;
 };
 
 type Params = {
   providerId: string;
   categoryId: string;
-  serviceId: string;
   date: string;
   time: string;
   reason: string;
@@ -47,28 +50,58 @@ type NavList = {
 type Route = RouteProp<NavList, 'HomeServiceAddress'>;
 type Nav = StackNavigationProp<NavList, 'HomeServiceAddress'>;
 
-const MOCK_SAVED = {
-  building: 'Green Valley Apartments',
-  floorFlat: 'Block B, Flat 402',
-  street: 'Road No. 12, Banjara Hills',
-  landmark: 'Near City Mall',
-  pincode: '500034',
-  cityState: 'Hyderabad, Telangana',
-};
-
 const HomeServiceAddress: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const user: any = useSelector((state: any) => state.currentUser);
   const route = useRoute<Route>();
-  const provider = getProviderById(route.params.providerId);
-  const service = getOfferingById(route.params.serviceId);
+  const [provider, setProvider] = useState<any>(null);
 
-  const [form, setForm] = useState<AddressFormData>(MOCK_SAVED);
-  const [useSaved, setUseSaved] = useState(true);
+  const [form, setForm] = useState<AddressFormData>({ building: '', street: '', pincode: '', cityState: '' });
+  const [useSaved, setUseSaved] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const fetchProvider = async () => {
+      const res = await getProviderDetailsById(route.params.providerId);
+      if (res.provider) setProvider(res.provider);
+    };
+    fetchProvider();
+  }, [route.params.providerId]);
+
+  React.useEffect(() => {
+    const fetchAddresses = async () => {
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        const res: any = await AuthPost(ENDPOINTS.GET_ADDRESSES, { userId: user?.userId }, token);
+        if (res?.data && Array.isArray(res.data)) {
+          setAddresses(res.data);
+          if (res.data.length > 0) {
+            const first = res.data[0];
+            setForm({
+              building: first.address || '',
+              floorFlat: '',
+              street: first.address || '',
+              landmark: '',
+              pincode: first.pincode || '',
+              cityState: first.city && first.state ? `${first.city}, ${first.state}` : (first.city || first.state || ''),
+            });
+            setUseSaved(true);
+            setSelectedAddressId(first.addressId);
+          }
+        }
+      } catch (e) {
+        console.log(e);
+      }
+    };
+    fetchAddresses();
+  }, [user?.userId]);
 
   const update = (key: keyof AddressFormData, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
     setUseSaved(false);
+    setSelectedAddressId(null);
   };
 
   const handleLocationSelected = (loc: PatientLocation) => {
@@ -100,11 +133,35 @@ const HomeServiceAddress: React.FC = () => {
     return true;
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!validate()) return;
+
+    let currentAddressId = selectedAddressId;
+    if (!useSaved) {
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        const payload = {
+          type: "Home",
+          address: `${form.building} ${form.floorFlat ? form.floorFlat : ''} ${form.street} ${form.landmark ? form.landmark : ''}`.trim(),
+          city: form.cityState.split(',')[0]?.trim() || '',
+          state: form.cityState.split(',')[1]?.trim() || form.cityState.split(',')[0]?.trim() || '',
+          country: "India",
+          pincode: form.pincode,
+          latitude: 0,
+          longitude: 0,
+        };
+        const res: any = await AuthPost(ENDPOINTS.ADD_ADDRESS, payload, token);
+        if (res?.status === 200 && res?.data?.addressId) {
+           currentAddressId = res.data.addressId;
+        }
+      } catch (e) {
+        console.log("Failed to add address", e);
+      }
+    }
+
     navigation.navigate('HomeServiceReviewPay', {
       ...route.params,
-      formData: form,
+      formData: { ...form, patientAddressId: currentAddressId || '' },
     });
   };
 
@@ -116,6 +173,30 @@ const HomeServiceAddress: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scroll}>
+          {provider?.fullName && (
+            <View style={[styles.summaryCard, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
+                <View style={[hsStyles.avatar, { width: 50, height: 50 }]}>
+                  <Text style={[hsStyles.avatarText, { fontSize: 20 }]}>{provider.fullName.charAt(0)}</Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: SPACING.sm }}>
+                  <Text style={styles.summaryName}>{provider.fullName}</Text>
+                  {provider.specialization ? <Text style={hsStyles.muted}>{provider.specialization}</Text> : null}
+                  {provider.profession ? <Text style={[hsStyles.muted, { marginTop: 4, fontSize: 12 }]}>Clinic Name: {provider.profession}</Text> : null}
+                </View>
+              </View>
+              {provider.homeAddress && (
+                <View style={{ marginTop: SPACING.sm, paddingLeft: 60, flexDirection: 'row' }}>
+                  <Text style={{ color: '#E74C3C', marginRight: 4 }}>📍</Text>
+                  <Text style={{ flex: 1, fontSize: 12, color: '#3b82f6' }}>{provider.homeAddress}</Text>
+                </View>
+              )}
+              <TouchableOpacity style={{ width: '100%', alignItems: 'flex-end', marginTop: 8 }} onPress={() => navigation.navigate('ProviderDetails' as any, { providerId: route.params.providerId, categoryId: route.params.categoryId })}>
+                 <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <TouchableOpacity
             style={styles.mapPreview}
             onPress={() => setShowLocationModal(true)}
@@ -128,18 +209,34 @@ const HomeServiceAddress: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.savedCard, useSaved && styles.savedCardActive]}
-            onPress={() => {
-              setForm(MOCK_SAVED);
-              setUseSaved(true);
-            }}
-          >
-            <Text style={styles.savedLabel}>Use saved address</Text>
-            <Text style={hsStyles.muted} numberOfLines={2}>
-              {MOCK_SAVED.building}, {MOCK_SAVED.street}
-            </Text>
-          </TouchableOpacity>
+          {addresses.length > 0 && (
+            <View style={{ marginBottom: SPACING.md }}>
+              <Text style={[hsStyles.sectionTitle, { marginBottom: SPACING.xs }]}>Saved addresses</Text>
+              {addresses.map(addr => (
+                <TouchableOpacity
+                  key={addr.addressId}
+                  style={[styles.savedCard, selectedAddressId === addr.addressId && styles.savedCardActive]}
+                  onPress={() => {
+                    setForm({
+                      building: addr.address,
+                      floorFlat: '',
+                      street: addr.address,
+                      landmark: '',
+                      pincode: addr.pincode,
+                      cityState: addr.city && addr.state ? `${addr.city}, ${addr.state}` : (addr.city || addr.state || ''),
+                    });
+                    setUseSaved(true);
+                    setSelectedAddressId(addr.addressId);
+                  }}
+                >
+                  <Text style={styles.savedLabel}>{addr.type || 'Home'}</Text>
+                  <Text style={hsStyles.muted} numberOfLines={2}>
+                    {addr.address}, {addr.city} - {addr.pincode}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           <Text style={hsStyles.sectionTitle}>Address details</Text>
 
@@ -150,11 +247,6 @@ const HomeServiceAddress: React.FC = () => {
           <Field label="Pincode *" value={form.pincode} onChange={v => update('pincode', v)} keyboard="number-pad" maxLength={6} />
           <Field label="City & State *" value={form.cityState} onChange={v => update('cityState', v)} />
 
-          <View style={styles.feeNote}>
-            <Text style={styles.feeNoteText}>
-              Visit fee for {service?.name}: ₹{service?.price}
-            </Text>
-          </View>
         </ScrollView>
 
         <View style={styles.footer}>
@@ -210,6 +302,19 @@ const Field: React.FC<{
 
 const styles = StyleSheet.create({
   scroll: { padding: SPACING.md, paddingBottom: SPACING.xl },
+  summaryCard: {
+    backgroundColor: HS_COLORS.card,
+    borderRadius: LAYOUT.borderRadius.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: HS_COLORS.border,
+  },
+  summaryName: {
+    fontSize: moderateScale(16),
+    fontWeight: '700',
+    color: HS_COLORS.text,
+  },
   mapPreview: {
     backgroundColor: '#DBEAFE',
     borderRadius: LAYOUT.borderRadius.lg,
@@ -258,18 +363,6 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
     fontSize: moderateScale(14),
     color: HS_COLORS.text,
-  },
-  feeNote: {
-    backgroundColor: HS_COLORS.accentSoft,
-    padding: SPACING.md,
-    borderRadius: LAYOUT.borderRadius.md,
-    marginTop: SPACING.sm,
-  },
-  feeNoteText: {
-    fontSize: moderateScale(13),
-    fontWeight: '600',
-    color: '#047857',
-    textAlign: 'center',
   },
   footer: {
     padding: SPACING.md,

@@ -39,7 +39,7 @@ interface ProviderReview {
 type Params = {providerId: string; role: string};
 type NavList = {
   ProviderDetails: Params;
-  HomeServiceOfferings: Params;
+  HomeServiceSlotSelection: Params;
 };
 
 type Route = RouteProp<NavList, 'ProviderDetails'>;
@@ -429,20 +429,10 @@ const ProviderDetailsScreen: React.FC = () => {
               ₹{displayProvider.startingPrice}
             </Text>
           </View>
-          {/* <TouchableOpacity
-            style={[hsStyles.primaryBtn, styles.footerBtn]}
-            onPress={() =>
-              navigation.navigate('HomeServiceOfferings', {
-                providerId,
-                role,
-              })
-            }>
-            <Text style={hsStyles.primaryBtnText}>View services</Text>
-          </TouchableOpacity> */}
           <TouchableOpacity
             style={[hsStyles.primaryBtn, styles.footerBtn]}
             onPress={() =>
-              navigation.navigate('HomeServiceOfferings', {
+              navigation.navigate('HomeServiceSlotSelection', {
                 providerId,
                 role,
               })

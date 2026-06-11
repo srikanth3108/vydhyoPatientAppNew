@@ -111,7 +111,7 @@ const ProviderCard: React.FC<{
         <View style={styles.footerRow}>
           <View>
             <Text style={hsStyles.muted}>Start from</Text>
-            <Text style={hsStyles.price}>${provider.consultationFee.toFixed(2)}</Text>
+            <Text style={hsStyles.price}> ₹{provider.consultationFee.toFixed(2)}</Text>
           </View>
           <View style={hsStyles.primaryBtn}>
             <Text style={hsStyles.primaryBtnText}>View Details</Text>

@@ -148,10 +148,31 @@ const HomeServiceBookingConfirmation: React.FC = () => {
         setIsLoading(true);
         let details: any = {};
 
-        // 1. Try to load from navigation params first
-        if (params.categoryId && params.providerId && params.serviceId) {
+        // Try to load from AsyncStorage 'latestAppointmentDetails' first
+        const latestStr = await AsyncStorage.getItem('latestAppointmentDetails');
+        if (latestStr) {
+          const data = JSON.parse(latestStr);
+          details = {
+            bookingId: data.appointmentId || params.orderID || `HS-${Math.floor(100000 + Math.random() * 900000)}`,
+            providerName: data.doctorName || 'Care Professional',
+            businessName: data.appointmentDepartment || 'Vydhyo Home Care',
+            categoryEmoji: '🩺',
+            categoryName: 'Home Visit',
+            serviceName: 'Specialized Consult',
+            duration: 'Home Visit Session',
+            date: data.appointmentDate || params.date || '',
+            time: data.appointmentTime || params.time || '',
+            patientName: data.patientName || (params.patient ? `${params.patient.firstname} ${params.patient.lastname || ''}`.trim() : 'Patient'),
+            address: data.homeAddress || (params.address ? (typeof params.address === 'string' ? params.address : `${params.address.building || ''}, ${params.address.street || ''}, ${params.address.cityState || ''} - ${params.address.pincode || ''}`) : 'Home Address'),
+            price: data.amount || 700,
+            platformFee: params.platformFee || 15,
+            discount: data.discount || 0,
+            totalPaid: data.finalAmount !== undefined ? data.finalAmount : (data.amount || 700),
+            paymentMethod: data.paymentMethod || params.selectedOption || 'UPI',
+            transactionId: params.orderID || data.appointmentObjId || `TXN-${Date.now().toString().slice(-8)}`,
+          };
+        } else if (params.categoryId && params.providerId) {
           const provider = getProviderById(params.providerId);
-          const service = getOfferingById(params.serviceId);
           const category = getCategoryById(params.categoryId);
 
           details = {
@@ -160,67 +181,42 @@ const HomeServiceBookingConfirmation: React.FC = () => {
             businessName: provider?.businessName || 'Vydhyo Home Care',
             categoryEmoji: category?.emoji || '🏠',
             categoryName: category?.name || 'Home Visit',
-            serviceName: service?.name || 'Physio/Nurse Therapy',
-            duration: service?.duration || '45 mins',
+            serviceName: 'Home Visit Consultation',
+            duration: '1 Session',
             date: params.date || new Date().toISOString().split('T')[0],
             time: params.time || '10:00 AM',
             patientName: params.patient ? `${params.patient.firstname} ${params.patient.lastname || ''}`.trim() : 'Patient',
             address: params.address ?
               (typeof params.address === 'string' ? params.address :
                 `${params.address.building || ''}, ${params.address.street || ''}, ${params.address.cityState || ''} - ${params.address.pincode || ''}`) : 'Home Address',
-            price: service?.price || 700,
+            price: provider?.startingPrice || 700,
             platformFee: params.platformFee || 15,
             discount: 0,
-            totalPaid: (service?.price || 700) + (params.platformFee || 15),
+            totalPaid: (provider?.startingPrice || 700) + (params.platformFee || 15),
             paymentMethod: params.selectedOption || 'UPI',
             transactionId: params.orderID || `TXN-${Date.now().toString().slice(-8)}`,
           };
         } else {
-          // 2. Otherwise try AsyncStorage 'latestAppointmentDetails'
-          const latestStr = await AsyncStorage.getItem('latestAppointmentDetails');
-          if (latestStr) {
-            const data = JSON.parse(latestStr);
-            details = {
-              bookingId: data.appointmentId || `HS-${Math.floor(100000 + Math.random() * 900000)}`,
-              providerName: data.doctorName || 'Care Professional',
-              businessName: data.appointmentDepartment || 'Vydhyo Home Care',
-              categoryEmoji: '🩺',
-              categoryName: 'Home Visit',
-              serviceName: 'Specialized Consult',
-              duration: 'Home Visit Session',
-              date: data.appointmentDate || '',
-              time: data.appointmentTime || '',
-              patientName: data.patientName || 'Patient',
-              address: data.homeAddress ? data.homeAddress.split(',').join('\n') : 'Home Address',
-              price: data.amount || 700,
-              platformFee: params.platformFee || 15,
-              discount: data.discount || 0,
-              totalPaid: data.finalAmount !== undefined ? data.finalAmount : (data.amount || 700),
-              paymentMethod: data.paymentMethod || 'UPI',
-              transactionId: params.orderID || data.appointmentObjId || `TXN-${Date.now().toString().slice(-8)}`,
-            };
-          } else {
-            // Fallback mock details if nothing else is available
-            details = {
-              bookingId: `HS-${Math.floor(100000 + Math.random() * 900000)}`,
-              providerName: 'Sister Lakshmi Rao',
-              businessName: 'HomeNurse Pro',
-              categoryEmoji: '💉',
-              categoryName: 'Nursing Care',
-              serviceName: 'Post-Surgery Nursing Care',
-              duration: '90 mins',
-              date: new Date().toLocaleDateString(),
-              time: '10:00 AM',
-              patientName: 'Rajesh Kumar',
-              address: 'Flat 402, Lotus Heights, Madhapur, Hyderabad - 500081',
-              price: 1299,
-              platformFee: 25,
-              discount: 100,
-              totalPaid: 1224,
-              paymentMethod: 'UPI',
-              transactionId: `TXN-${Date.now().toString().slice(-8)}`,
-            };
-          }
+          // Fallback mock details if nothing else is available
+          details = {
+            bookingId: `HS-${Math.floor(100000 + Math.random() * 900000)}`,
+            providerName: 'Sister Lakshmi Rao',
+            businessName: 'HomeNurse Pro',
+            categoryEmoji: '💉',
+            categoryName: 'Nursing Care',
+            serviceName: 'Post-Surgery Nursing Care',
+            duration: '90 mins',
+            date: new Date().toLocaleDateString(),
+            time: '10:00 AM',
+            patientName: 'Rajesh Kumar',
+            address: 'Flat 402, Lotus Heights, Madhapur, Hyderabad - 500081',
+            price: 1299,
+            platformFee: 25,
+            discount: 100,
+            totalPaid: 1224,
+            paymentMethod: 'UPI',
+            transactionId: `TXN-${Date.now().toString().slice(-8)}`,
+          };
         }
         setBookingDetails(details);
         setIsLoading(false);

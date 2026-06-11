@@ -22,6 +22,8 @@ export const ENDPOINTS = {
   // User Endpoints
   GET_USER: (userId?: string) => userId ? `users/getUser?userId=${userId}` : 'users/getUser',
   GET_CLINIC_ADDRESS: (doctorId: string) => `users/getClinicAddress?doctorId=${doctorId}`,
+  ADD_ADDRESS: 'users/addAddress',
+  GET_ADDRESSES: 'users/getAddress',
   ADD_FEEDBACK: 'users/addFeedback',
   SUBMIT_PATIENT_RESPONSE: 'users/submitPatientResponse',
   UPDATE_FCM_TOKEN: 'users/updateFcmToken',
@@ -77,4 +79,10 @@ export const ENDPOINTS = {
   GET_HOME_CARE_ROLES: 'provider/roles',
   GET_HOME_CARE_PROVIDERS_ROLE: 'provider/role/',
   GET_HOME_CARE_PROVIDER_ID: (providerId: string) => `provider/getProvider/${providerId}`,
+  CREATE_APPROVIDER_APPOINTMENT: 'appointment/createProviderAppointment',
+  GET_PROVIDER_AVAILABILITY_SLOTS: (providerId: string) => `provider-slots/getProviderAvailability?providerId=${providerId}`,
+  GET_FAMILY_MEMBERS: 'family-member/getFamilyMembers',
+  ADD_FAMILY_MEMBER: 'family-member/addFamilyMember',
+  UPDATE_FAMILY_MEMBER: 'family-member/updateFamilyMember',
+  // DELETE_FAMILY_MEMBER: (familyMemberId: string) => `family-member/deleteFamilyMember/${familyMemberId}`,
 };

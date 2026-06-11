@@ -67,7 +67,7 @@ const HomeServices: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const result = await getHomeCareRoles(user?.token);
+        const result = await getHomeCareRoles();
         if (result.error) {
           setError(result.error);
           setRoles([]);

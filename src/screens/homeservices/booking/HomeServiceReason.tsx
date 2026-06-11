@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { getOfferingById, getProviderById } from '../../../data/mockHomeServices';
+import { getProviderDetailsById } from '../../../services/homeCareService';
 import { HS_COLORS, hsStyles } from '../homeServiceTheme';
 import { SPACING, moderateScale, LAYOUT } from '../../../utils/responsive';
 import DocumentPicker from 'react-native-document-picker';
@@ -22,7 +22,6 @@ import RNFS from 'react-native-fs';
 type Params = {
   providerId: string;
   categoryId: string;
-  serviceId: string;
   date: string;
   time: string;
 };
@@ -48,8 +47,16 @@ const HomeServiceReason: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const [reason, setReason] = useState('');
-  const provider = getProviderById(route.params.providerId);
-  const service = getOfferingById(route.params.serviceId);
+  const [provider, setProvider] = useState<any>(null);
+
+  React.useEffect(() => {
+    const fetchProvider = async () => {
+      const res = await getProviderDetailsById(route.params.providerId);
+      if (res.provider) setProvider(res.provider);
+    };
+    fetchProvider();
+  }, [route.params.providerId]);
+
   const [attachments, setAttachments] = useState<any[]>([]);
   const openDocumentPicker = async () => {
     try {
@@ -101,13 +108,29 @@ const HomeServiceReason: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scroll}>
-          <View style={styles.tipCard}>
-            <Text style={styles.tipTitle}>Help your provider prepare</Text>
-            <Text style={styles.tipText}>
-              Share why you need {service?.name?.toLowerCase() ?? 'this service'}.
-              {provider?.name ? ` ${provider.name} will review before the visit.` : ''}
-            </Text>
-          </View>
+          {provider?.fullName && (
+            <View style={[styles.summaryCard, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
+                <View style={[hsStyles.avatar, { width: 50, height: 50 }]}>
+                  <Text style={[hsStyles.avatarText, { fontSize: 20 }]}>{provider.fullName.charAt(0)}</Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: SPACING.sm }}>
+                  <Text style={styles.summaryName}>{provider.fullName}</Text>
+                  {provider.specialization ? <Text style={hsStyles.muted}>{provider.specialization}</Text> : null}
+                  {provider.profession ? <Text style={[hsStyles.muted, { marginTop: 4, fontSize: 12 }]}>Clinic Name: {provider.profession}</Text> : null}
+                </View>
+              </View>
+              {provider.homeAddress && (
+                <View style={{ marginTop: SPACING.sm, paddingLeft: 60, flexDirection: 'row' }}>
+                  <Text style={{ color: '#E74C3C', marginRight: 4 }}>📍</Text>
+                  <Text style={{ flex: 1, fontSize: 12, color: '#3b82f6' }}>{provider.homeAddress}</Text>
+                </View>
+              )}
+              <TouchableOpacity style={{ width: '100%', alignItems: 'flex-end', marginTop: 8 }} onPress={() => navigation.navigate('ProviderDetails' as any, { providerId: route.params.providerId, categoryId: route.params.categoryId })}>
+                 <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <Text style={hsStyles.sectionTitle}>Quick picks</Text>
           <View style={styles.chipsRow}>
@@ -201,24 +224,18 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingBottom: SPACING.xl,
   },
-  tipCard: {
-    backgroundColor: '#EFF6FF',
+  summaryCard: {
+    backgroundColor: HS_COLORS.card,
     borderRadius: LAYOUT.borderRadius.lg,
     padding: SPACING.md,
-    borderLeftWidth: 4,
-    borderLeftColor: HS_COLORS.primaryLight,
     marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: HS_COLORS.border,
   },
-  tipTitle: {
-    fontSize: moderateScale(14),
+  summaryName: {
+    fontSize: moderateScale(16),
     fontWeight: '700',
-    color: HS_COLORS.primary,
-    marginBottom: SPACING.xxs,
-  },
-  tipText: {
-    fontSize: moderateScale(13),
-    color: HS_COLORS.textMuted,
-    lineHeight: moderateScale(18),
+    color: HS_COLORS.text,
   },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
   chip: {

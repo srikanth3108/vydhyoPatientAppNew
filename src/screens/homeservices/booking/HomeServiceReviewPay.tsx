@@ -19,8 +19,6 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/navigationTypes';
 import {
   getCategoryById,
-  getOfferingById,
-  getProviderById,
 } from '../../../data/mockHomeServices';
 import { AddressFormData } from './HomeServiceAddress';
 import { HS_COLORS, hsStyles } from '../homeServiceTheme';
@@ -30,6 +28,7 @@ import Toast from 'react-native-toast-message';
 import { AuthFetch, AuthPost, ENDPOINTS } from '../../../services';
 import { useSelector } from 'react-redux';
 import { WebView } from 'react-native-webview';
+import { createProviderAppointment, providerPaymentSuccess, providerPaymentFailure, getProviderDetailsById } from '../../../services/homeCareService';
 
 type Patient = {
   firstname: string;
@@ -44,7 +43,6 @@ type Patient = {
 type Params = {
   providerId: string;
   categoryId: string;
-  serviceId: string;
   date: string;
   time: string;
   reason: string;
@@ -62,10 +60,20 @@ const HomeServiceReviewPay: React.FC = () => {
   const user: any = useSelector((state: any) => state.currentUser);
   const userWallet = useSelector((s: any) => s.userWallet);
 
-  const provider = getProviderById(params.providerId)!;
-  const service = getOfferingById(params.serviceId)!;
   const category = getCategoryById(params.categoryId);
   const { patient, formData, reason, date, time } = params;
+
+  const [providerDetails, setProviderDetails] = useState<any>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProvider = async () => {
+      const res = await getProviderDetailsById(params.providerId);
+      if (res.provider) setProviderDetails(res.provider);
+      setInitialLoading(false);
+    };
+    fetchProvider();
+  }, [params.providerId]);
 
   // ─── Payment state ────────────────────────────────
   const [selectedOption, setSelectedOption] = useState<string>('upi');
@@ -92,7 +100,7 @@ const HomeServiceReviewPay: React.FC = () => {
   const [selectedDiscount, setSelectedDiscount] = useState<'referral' | 'promo' | null>(null);
 
   // ─── Derived values ───────────────────────────────
-  const serviceFee = service.price;
+  const serviceFee = providerDetails?.consultationFee || 0;
   const computedPlatformFee = Math.round(serviceFee * 0.02);
   const baseTotal = serviceFee + computedPlatformFee;
 
@@ -248,18 +256,11 @@ const HomeServiceReviewPay: React.FC = () => {
   // ─── Release slot on failure ──────────────────────
   const handleReleaseSlot = async (reason: string) => {
     try {
-      const token = await getToken();
       const latestStr = await AsyncStorage.getItem('latestAppointmentDetails');
       const appointmentDetails = latestStr ? JSON.parse(latestStr) : null;
-      if (!appointmentDetails || !token) return;
-      const response: any = await AuthPost(
-        ENDPOINTS.RELEASE_DOCTOR_SLOT,
-        { appointmentDetails, reason },
-        token,
-      );
-      if (response.status === 'success') {
-        await AsyncStorage.removeItem('latestAppointmentDetails');
-      }
+      if (!appointmentDetails) return;
+      await providerPaymentFailure(appointmentDetails.appointmentId);
+      await AsyncStorage.removeItem('latestAppointmentDetails');
     } catch {
       // silent
     }
@@ -327,30 +328,40 @@ const HomeServiceReviewPay: React.FC = () => {
         const status = response.data[0]?.order_status;
         const orderId = response.data[0]?.order_id;
         if (status === 'PAID') {
-          Toast.show({ type: 'success', text1: `Payment Verified: ${linkId}` });
-          await AsyncStorage.removeItem('linkId');
-          navigation.replace('HomeServiceBookingConfirmation', {
-            orderID: orderId || linkId,
-            platformFee: platformFee || computedPlatformFee,
-            selectedOption: selectedOption,
-            categoryId: params.categoryId,
-            providerId: params.providerId,
-            serviceId: params.serviceId,
-            date: params.date,
-            time: params.time,
-            patient: params.patient,
-            address: params.formData,
-            reason: params.reason,
-          });
+          const verifyRes = await providerPaymentSuccess(orderId || linkId);
+          if (!verifyRes.error) {
+            Toast.show({ type: 'success', text1: `Payment Verified: ${linkId}` });
+            await AsyncStorage.removeItem('linkId');
+            navigation.replace('HomeServiceBookingConfirmation', {
+              orderID: orderId || linkId,
+              platformFee: platformFee || computedPlatformFee,
+              selectedOption: selectedOption,
+              categoryId: params.categoryId,
+              providerId: params.providerId,
+              date: params.date,
+              time: params.time,
+              patient: params.patient,
+              address: params.formData,
+              reason: params.reason,
+            });
+          } else {
+            Toast.show({ type: 'error', text1: 'Payment Failed Verification', text2: `Order: ${linkId}` });
+            await AsyncStorage.removeItem('linkId');
+            await providerPaymentFailure(orderId || linkId);
+          }
         } else {
           Toast.show({ type: 'error', text1: 'Payment Failed', text2: `Order: ${linkId}` });
           await AsyncStorage.removeItem('linkId');
-          handleReleaseSlot('Payment failed');
+          await providerPaymentFailure(orderId || linkId);
         }
       } else {
         Toast.show({ type: 'error', text1: 'Payment Failed', text2: `Order: ${linkId}` });
         await AsyncStorage.removeItem('linkId');
-        handleReleaseSlot('Payment failed');
+        const latestStr = await AsyncStorage.getItem('latestAppointmentDetails');
+        if (latestStr) {
+          const appointmentDetails = JSON.parse(latestStr);
+          await providerPaymentFailure(appointmentDetails.appointmentId);
+        }
       }
     } catch (error: any) {
       Toast.show({
@@ -409,59 +420,49 @@ const HomeServiceReviewPay: React.FC = () => {
         discountType = 'flat';
       }
 
-      // Build form data for appointment creation
-      const homeAddressString = Object.entries(formData || {})
-        .map(([key, value]) => `${key}:${value || ''}`)
-        .join(',');
+      const appointmentData: any = {
+        userId: user?.userId || '',
+        bookingFor: params.patient.relationship === 'Self' ? 'self' : 'family',
+        familyMemberId: (params.patient as any).familyMemberId,
+        providerId: params.providerId,
+        appointmentDate: date,
+        appointmentTime: time,
+        quickPick: reason,
+        appointmentReason: reason,
+        patientAddressId: '',
+        visitAddress: {
+          buildingName: formData.building || '',
+          flatNumber: formData.floorFlat || '',
+          street: formData.street || '',
+          landmark: formData.landmark || '',
+          city: formData.cityState?.split(',')[0]?.trim() || '',
+          state: formData.cityState?.split(',')[1]?.trim() || '',
+          country: 'India',
+          pincode: formData.pincode || '',
+          latitude: 0,
+          longitude: 0,
+        },
+        paymentMethod: paymentMethod === 'wallet' ? 'wallet' : 'upi',
+        amount: Math.round(upiAmount > 0 ? upiAmount : serviceFee),
+      };
 
-      const appointmentFormData = new FormData();
-      appointmentFormData.append('userId', patientUserId);
-      appointmentFormData.append('doctorId', provider.id); // provider is the "doctor" in home service context
-      appointmentFormData.append(
-        'patientName',
-        `${patient.firstname} ${patient.lastname || ''}`.trim(),
-      );
-      appointmentFormData.append('doctorName', provider.name);
-      appointmentFormData.append('appointmentType', 'Home Visit');
-      appointmentFormData.append('appointmentDepartment', category?.name || 'Home Service');
-      appointmentFormData.append('addressId', '');
-      appointmentFormData.append('appointmentDate', date);
-      appointmentFormData.append('appointmentTime', time);
-      appointmentFormData.append('appointmentStatus', 'pending');
-      appointmentFormData.append('appointmentReason', reason);
-      appointmentFormData.append('amount', String(serviceFee));
-      appointmentFormData.append('discount', String(discountAmount));
-      appointmentFormData.append('discountType', discountType);
-      appointmentFormData.append('paymentStatus', paymentStatus);
-      appointmentFormData.append('appSource', 'patientApp');
-      appointmentFormData.append('homeAddress', homeAddressString);
-      appointmentFormData.append('paymentMethod', paymentMethod);
+      const response = await createProviderAppointment(appointmentData);
 
-      if (couponId) {
-        appointmentFormData.append('couponId', couponId);
-      }
-
-      const response: any = await AuthPost(
-        ENDPOINTS.CREATE_APPOINTMENT,
-        appointmentFormData,
-        token,
-      );
-
-      if (response?.data?.status === 'success') {
-        const appointmentId = response?.data?.data?.appointmentId;
-        const platformFeeValue = response?.data?.data?.platformfee || computedPlatformFee;
+      if (!response.error && response.data) {
+        const appointmentId = response.data.appointmentId;
+        const platformFeeValue = computedPlatformFee;
         setPlatformFee(platformFeeValue);
 
         const appointmentDetails: any = {
           userId: patientUserId,
-          doctorId: provider.id,
+          doctorId: params.providerId,
           patientName: `${patient.firstname} ${patient.lastname || ''}`.trim(),
-          doctorName: provider.name,
+          doctorName: providerDetails?.fullName || '',
           appointmentType: 'Home Visit',
           appointmentDepartment: category?.name || 'Home Service',
           appointmentDate: date,
           appointmentTime: time,
-          homeAddress: homeAddressString,
+          homeAddress: formData.street,
           appointmentStatus: 'pending',
           appointmentReason: reason,
           amount: serviceFee,
@@ -495,7 +496,6 @@ const HomeServiceReviewPay: React.FC = () => {
             selectedOption: 'wallet',
             categoryId: params.categoryId,
             providerId: params.providerId,
-            serviceId: params.serviceId,
             date: params.date,
             time: params.time,
             patient: params.patient,
@@ -513,7 +513,6 @@ const HomeServiceReviewPay: React.FC = () => {
             selectedOption,
             categoryId: params.categoryId,
             providerId: params.providerId,
-            serviceId: params.serviceId,
             date: params.date,
             time: params.time,
             patient: params.patient,
@@ -522,8 +521,7 @@ const HomeServiceReviewPay: React.FC = () => {
           });
         }
       } else {
-        const errorMessage =
-          response?.data?.message || response?.message?.message || 'Failed to create appointment';
+        const errorMessage = response.error || 'Failed to create appointment';
         Alert.alert('Error', errorMessage);
         Toast.show({
           type: 'error',
@@ -568,6 +566,14 @@ const HomeServiceReviewPay: React.FC = () => {
     );
   }
 
+  if (initialLoading) {
+    return (
+      <SafeAreaView style={[hsStyles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={HS_COLORS.primary} />
+      </SafeAreaView>
+    );
+  }
+
   // ─── Main UI ──────────────────────────────────────
   return (
     <SafeAreaView style={hsStyles.screen}>
@@ -588,8 +594,8 @@ const HomeServiceReviewPay: React.FC = () => {
 
           {/* Provider */}
           <Section title="Provider" icon="👤">
-            <Text style={styles.bold}>{provider.name}</Text>
-            <Text style={hsStyles.muted}>{provider.businessName}</Text>
+            <Text style={styles.bold}>{providerDetails?.fullName || ''}</Text>
+            <Text style={hsStyles.muted}>{providerDetails?.profession || ''}</Text>
             <View style={styles.pill}>
               <Text style={styles.pillText}>
                 {category?.emoji} {category?.name} · Home visit
@@ -599,8 +605,7 @@ const HomeServiceReviewPay: React.FC = () => {
 
           {/* Service & Slot */}
           <Section title="Service & slot" icon="📅">
-            <Text style={styles.bold}>{service.name}</Text>
-            <Text style={hsStyles.muted}>{service.duration}</Text>
+            <Text style={styles.bold}>Home Visit Consultation</Text>
             <InfoRow label="Date" value={formatDate(date)} />
             <InfoRow label="Time" value={time} />
           </Section>

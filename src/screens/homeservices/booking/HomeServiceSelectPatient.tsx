@@ -16,19 +16,13 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  getOfferingById,
-  getProviderById,
-  MOCK_FAMILY_MEMBERS,
-  MockFamilyMember,
-} from '../../../data/mockHomeServices';
+import { getFamilyMembers, addFamilyMember, FamilyMember, getProviderDetailsById } from '../../../services/homeCareService';
 import { HS_COLORS, hsStyles } from '../homeServiceTheme';
 import { SPACING, moderateScale, LAYOUT, SAFE_AREA } from '../../../utils/responsive';
 
 type Params = {
   providerId: string;
   categoryId: string;
-  serviceId: string;
   date: string;
   time: string;
   reason: string;
@@ -48,12 +42,32 @@ const HomeServiceSelectPatient: React.FC = () => {
   const insets = useSafeAreaInsets();
   const currentUser = useSelector((state: any) => state.currentUser);
 
-  const provider = getProviderById(route.params.providerId);
-  const service = getOfferingById(route.params.serviceId);
+  const [provider, setProvider] = useState<any>(null);
+
+  React.useEffect(() => {
+    const fetchProvider = async () => {
+      const res = await getProviderDetailsById(route.params.providerId);
+      if (res.provider) setProvider(res.provider);
+    };
+    fetchProvider();
+  }, [route.params.providerId]);
 
   const [forSelf, setForSelf] = useState(true);
-  const [familyMembers, setFamilyMembers] = useState<MockFamilyMember[]>(MOCK_FAMILY_MEMBERS);
-  const [selectedMember, setSelectedMember] = useState<MockFamilyMember | null>(null);
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchFamily = async () => {
+      setLoading(true);
+      const res = await getFamilyMembers();
+      if (res.familyMembers) {
+        setFamilyMembers(res.familyMembers);
+      }
+      setLoading(false);
+    };
+    fetchFamily();
+  }, []);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -91,42 +105,35 @@ const HomeServiceSelectPatient: React.FC = () => {
     return Object.keys(tempErrors).length === 0;
   };
 
-  const handleAddMemberSubmit = () => {
+  const handleAddMemberSubmit = async () => {
     if (!validateForm()) return;
 
-    const avatarColors = [
-      { bg: '#E8F4FD', text: '#1E40AF' },
-      { bg: '#FCE7F3', text: '#9D174D' },
-      { bg: '#FEF3C7', text: '#92400E' },
-      { bg: '#ECFDF5', text: '#065F46' },
-      { bg: '#F5F3FF', text: '#5B21B6' },
-    ];
-    const randomColor = avatarColors[familyMembers.length % avatarColors.length];
+    try {
+      await addFamilyMember({
+        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+        relation: relationship,
+        gender: gender,
+        age: parseInt(age),
+        mobile: mobile.trim()
+      });
+      
+      const res = await getFamilyMembers();
+      if (res.familyMembers) {
+        setFamilyMembers(res.familyMembers);
+      }
 
-    const newMember: MockFamilyMember = {
-      id: `f${familyMembers.length + 1}`,
-      firstname: firstName.trim(),
-      lastname: lastName.trim(),
-      relationship,
-      mobile: mobile.trim(),
-      age: parseInt(age),
-      gender,
-      bgColor: randomColor.bg,
-      textColor: randomColor.text,
-    };
-
-    setFamilyMembers([...familyMembers, newMember]);
-    setSelectedMember(newMember); // Auto-select newly added member
-
-    // Reset Form Fields
-    setFirstName('');
-    setLastName('');
-    setRelationship('Father');
-    setMobile('');
-    setAge('');
-    setGender('Male');
-    setErrors({});
-    setIsModalOpen(false);
+      // Reset Form Fields
+      setFirstName('');
+      setLastName('');
+      setRelationship('Father');
+      setMobile('');
+      setAge('');
+      setGender('Male');
+      setErrors({});
+      setIsModalOpen(false);
+    } catch (e) {
+      console.error('Failed to add member', e);
+    }
   };
 
   const buildPatient = () => {
@@ -142,12 +149,16 @@ const HomeServiceSelectPatient: React.FC = () => {
         gender: currentUser?.gender || 'Male',
       };
     }
+    const names = selectedMember!.name.split(' ');
+    const firstname = names[0];
+    const lastname = names.slice(1).join(' ');
     return {
-      userId: selectedMember!.id,
-      firstname: selectedMember!.firstname,
-      lastname: selectedMember!.lastname,
-      name: `${selectedMember!.firstname} ${selectedMember!.lastname}`,
-      relationship: selectedMember!.relationship,
+      userId: selectedMember!.userId || '',
+      familyMemberId: selectedMember!.familyMemberId || selectedMember!._id,
+      firstname,
+      lastname,
+      name: selectedMember!.name,
+      relationship: selectedMember!.relation,
       mobile: selectedMember!.mobile,
       age: selectedMember!.age,
       gender: selectedMember!.gender,
@@ -164,14 +175,31 @@ const HomeServiceSelectPatient: React.FC = () => {
   return (
     <SafeAreaView style={hsStyles.screen}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.bookingStrip}>
-        <Text style={styles.stripText}>
-          {service?.name} · {route.params.date} · {route.params.time}
-        </Text>
-        <Text style={hsStyles.muted}>{provider?.name}</Text>
-      </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        {provider?.fullName && (
+          <View style={[styles.summaryCard, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
+              <View style={[hsStyles.avatar, { width: 50, height: 50 }]}>
+                <Text style={[hsStyles.avatarText, { fontSize: 20 }]}>{provider.fullName.charAt(0)}</Text>
+              </View>
+              <View style={{ flex: 1, marginLeft: SPACING.sm }}>
+                <Text style={styles.summaryName}>{provider.fullName}</Text>
+                {provider.specialization ? <Text style={hsStyles.muted}>{provider.specialization}</Text> : null}
+                {provider.profession ? <Text style={[hsStyles.muted, { marginTop: 4, fontSize: 12 }]}>Clinic Name: {provider.profession}</Text> : null}
+              </View>
+            </View>
+            {provider.homeAddress && (
+              <View style={{ marginTop: SPACING.sm, paddingLeft: 60, flexDirection: 'row' }}>
+                <Text style={{ color: '#E74C3C', marginRight: 4 }}>📍</Text>
+                <Text style={{ flex: 1, fontSize: 12, color: '#3b82f6' }}>{provider.homeAddress}</Text>
+              </View>
+            )}
+            <TouchableOpacity style={{ width: '100%', alignItems: 'flex-end', marginTop: 8 }} onPress={() => navigation.navigate('ProviderDetails' as any, { providerId: route.params.providerId, categoryId: route.params.categoryId })}>
+               <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <Text style={hsStyles.sectionTitle}>Who is this booking for?</Text>
         <View style={styles.toggle}>
           <TouchableOpacity
@@ -211,49 +239,58 @@ const HomeServiceSelectPatient: React.FC = () => {
           </View>
         ) : (
           <>
-            {familyMembers.map(member => (
+            {familyMembers.map((member, index) => {
+              const avatarColors = [
+                { bg: '#E8F4FD', text: '#1E40AF' },
+                { bg: '#FCE7F3', text: '#9D174D' },
+                { bg: '#FEF3C7', text: '#92400E' },
+                { bg: '#ECFDF5', text: '#065F46' },
+                { bg: '#F5F3FF', text: '#5B21B6' },
+              ];
+              const randomColor = avatarColors[index % avatarColors.length];
+              return (
               <TouchableOpacity
-                key={member.id}
+                key={member.familyMemberId || member._id}
                 onPress={() => setSelectedMember(member)}
               >
                 <View
                   style={[
                     hsStyles.card,
                     styles.memberCard,
-                    selectedMember?.id === member.id && styles.memberSelected,
+                    (selectedMember?.familyMemberId === member.familyMemberId || selectedMember?._id === member._id) && styles.memberSelected,
                   ]}
                 >
                   <View
                     style={[
                       styles.initials,
-                      { backgroundColor: member.bgColor },
+                      { backgroundColor: randomColor.bg },
                     ]}
                   >
-                    <Text style={[styles.initialsText, { color: member.textColor }]}>
-                      {member.firstname[0]}
+                    <Text style={[styles.initialsText, { color: randomColor.text }]}>
+                      {(member.name || 'M')[0].toUpperCase()}
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.memberName}>
-                      {member.firstname} {member.lastname}
+                      {member.name}
                     </Text>
                     <Text style={hsStyles.muted}>
-                      {member.relationship} · {member.mobile}
+                      {member.relation} · {member.mobile}
                     </Text>
                   </View>
                   <View
                     style={[
                       styles.radio,
-                      selectedMember?.id === member.id && styles.radioOn,
+                      (selectedMember?.familyMemberId === member.familyMemberId || selectedMember?._id === member._id) && styles.radioOn,
                     ]}
                   >
-                    {selectedMember?.id === member.id && (
+                    {(selectedMember?.familyMemberId === member.familyMemberId || selectedMember?._id === member._id) && (
                       <View style={styles.radioInner} />
                     )}
                   </View>
                 </View>
               </TouchableOpacity>
-            ))}
+            )})}
             <TouchableOpacity style={styles.addFamily} onPress={() => setIsModalOpen(true)}>
               <Text style={styles.addFamilyText}>+ Add family member</Text>
             </TouchableOpacity>
@@ -433,15 +470,17 @@ const HomeServiceSelectPatient: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  bookingStrip: {
+  summaryCard: {
     backgroundColor: HS_COLORS.card,
+    borderRadius: LAYOUT.borderRadius.lg,
     padding: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: HS_COLORS.border,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: HS_COLORS.border,
   },
-  stripText: {
-    fontSize: moderateScale(13),
-    fontWeight: '600',
+  summaryName: {
+    fontSize: moderateScale(16),
+    fontWeight: '700',
     color: HS_COLORS.text,
   },
   scroll: { padding: SPACING.md, paddingBottom: SPACING.xl * 2 },

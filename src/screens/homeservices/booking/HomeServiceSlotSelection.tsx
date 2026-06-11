@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import moment from 'moment';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -16,13 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getCategoryById,
   getProviderById,
-  getOfferingById,
-  getMockSlotsForDate,
 } from '../../../data/mockHomeServices';
+import {  DateSlots, SlotData, getProviderDetailsById, getProviderSlotsAvailability } from '../../../services/homeCareService';
 import { HS_COLORS, hsStyles } from '../homeServiceTheme';
 import { SPACING, moderateScale, LAYOUT, SAFE_AREA } from '../../../utils/responsive';
+import { useSelector } from 'react-redux';
 
-type Params = { providerId: string; categoryId: string; serviceId: string };
+type Params = { providerId: string; role?: string; categoryId?: string };
 type NavList = {
   HomeServiceSlotSelection: Params;
   HomeServiceReason: Params & { date: string; time: string };
@@ -37,11 +39,10 @@ const HomeServiceSlotSelection: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
-  const { providerId, categoryId, serviceId } = route.params;
+  const { providerId, categoryId, role } = route.params;
 
-  const provider = getProviderById(providerId)!;
-  const service = getOfferingById(serviceId)!;
-  const category = getCategoryById(categoryId);
+  const category = categoryId ? getCategoryById(categoryId) : null;
+  const [providerMock] = useState(getProviderById(providerId));
 
   const [selectedDate, setSelectedDate] = useState(moment().format('YYYY-MM-DD'));
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -49,6 +50,52 @@ const HomeServiceSlotSelection: React.FC = () => {
   // Calendar states
   const [currentMonth, setCurrentMonth] = useState(moment());
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
+
+  // API states
+  const [loading, setLoading] = useState(true);
+  const [allDateSlots, setAllDateSlots] = useState<DateSlots[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState<any>([]);
+
+
+  // Fetch provider availability on component mount
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [slotsResult, providerResult] = await Promise.all([
+          getProviderSlotsAvailability(providerId),
+          getProviderDetailsById(providerId)
+        ]);
+
+        if (providerResult.provider) {
+           setProvider(providerResult.provider);
+        }
+
+        if (slotsResult.error) {
+           // We do not show full screen error for 'No availability found', just empty slots
+           setAllDateSlots([]);
+        } else if (slotsResult.data?.dates) {
+          setAllDateSlots(slotsResult.data.dates);
+          // Set first available date
+          if (slotsResult.data.dates.length > 0) {
+            setSelectedDate(slotsResult.data.dates[0].date);
+          }
+          if (!providerResult.provider && slotsResult.data.provider) {
+             setProvider(slotsResult.data.provider);
+          }
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        setError('Failed to fetch provider availability');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAvailability();
+  }, [providerId]);
 
   const quickDates = useMemo(() => {
     return [0, 1, 2].map(offset => {
@@ -65,9 +112,14 @@ const HomeServiceSlotSelection: React.FC = () => {
     });
   }, []);
 
-  const slots = useMemo(
-    () => getMockSlotsForDate(selectedDate),
-    [selectedDate],
+  const currentDateSlots: DateSlots | undefined = useMemo(
+    () => allDateSlots.find(d => d.date === selectedDate),
+    [selectedDate, allDateSlots],
+  );
+
+  const slots: SlotData[] = useMemo(
+    () => currentDateSlots?.slots || [],
+    [currentDateSlots],
   );
 
   const handleContinue = () => {
@@ -75,7 +127,6 @@ const HomeServiceSlotSelection: React.FC = () => {
     navigation.navigate('HomeServiceReason', {
       providerId,
       categoryId,
-      serviceId,
       date: selectedDate,
       time: selectedTime,
     });
@@ -175,142 +226,233 @@ const HomeServiceSlotSelection: React.FC = () => {
   return (
     <SafeAreaView style={hsStyles.screen}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.summaryCard}>
-        <View style={hsStyles.avatar}>
-          <Text style={hsStyles.avatarText}>{provider.avatarInitial}</Text>
+      
+      {loading && (
+        <View style={[hsStyles.screen, styles.centerContent]}>
+          <ActivityIndicator size="large" color={HS_COLORS.primary} />
+          <Text style={styles.loadingText}>Loading availability...</Text>
         </View>
-        <View style={{ flex: 1, marginLeft: SPACING.sm }}>
-          <Text style={styles.summaryName}>{provider.name}</Text>
-          <Text style={hsStyles.muted}>{service.name}</Text>
-          <Text style={hsStyles.price}>₹{service.price}</Text>
+      )}
+
+      {!loading && !provider && (
+        <View style={[hsStyles.screen, styles.centerContent]}>
+          <Text style={styles.errorText}>Provider not found</Text>
         </View>
-        <View style={styles.categoryPill}>
-          <Text style={styles.categoryPillText}>{category?.emoji} Home</Text>
-        </View>
-      </View>
+      )}
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Select date header with calendar toggle */}
-        <View style={styles.sectionHeader}>
-          <Text style={hsStyles.sectionTitle}>Select date</Text>
-          <TouchableOpacity style={styles.calendarButton} onPress={toggleCalendar}>
-            <Text style={styles.calendarIcon}>🗓</Text>
-            <Text style={styles.selectText}>Select</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Expandable Calendar */}
-        {isCalendarVisible && (
-          <View style={styles.calendarCard}>
-            <View style={styles.dateNavigation}>
-              <TouchableOpacity style={styles.navButton} onPress={handlePrevMonth}>
-                <Text style={styles.navButtonText}>‹</Text>
-              </TouchableOpacity>
-              <Text style={styles.currentMonth}>{currentMonth.format('MMMM YYYY')}</Text>
-              <TouchableOpacity style={styles.navButton} onPress={handleNextMonth}>
-                <Text style={styles.navButtonText}>›</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.calendarHeader}>
-              {DAY_HEADERS.map(d => (
-                <Text key={d} style={styles.calendarHeaderText}>{d}</Text>
-              ))}
-            </View>
-
-            <View style={styles.calendarGrid}>
-              {generateCalendarDays().map(day => renderCalendarDay(day))}
-            </View>
-          </View>
-        )}
-
-        {/* Quick date chips */}
-        <View style={styles.dateRow}>
-          {quickDates.map(d => (
-            <TouchableOpacity
-              key={d.date}
-              style={[
-                styles.dateChip,
-                selectedDate === d.date && styles.dateChipActive,
-              ]}
-              onPress={() => {
-                setSelectedDate(d.date);
-                setSelectedTime(null);
-              }}
-            >
-              <Text
-                style={[
-                  styles.dateChipText,
-                  selectedDate === d.date && styles.dateChipTextActive,
-                ]}
-              >
-                {d.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={[hsStyles.sectionTitle, { marginTop: SPACING.lg }]}>
-          Available slots — {moment(selectedDate).format('dddd, DD MMM')}
-        </Text>
-        <View style={styles.slotGrid}>
-          {slots.length === 0 ? (
-            <Text style={hsStyles.muted}>No slots available for this date.</Text>
-          ) : (
-            slots.map(slot => (
+      {!loading && provider && (
+        <>
+          {error && !allDateSlots.length ? (
+            <View style={[hsStyles.screen, styles.centerContent]}>
+              <Text style={styles.errorText}>{error}</Text>
               <TouchableOpacity
-                key={slot.time}
-                style={[
-                  styles.slotBtn,
-                  selectedTime === slot.time && styles.slotBtnActive,
-                ]}
-                onPress={() => setSelectedTime(slot.time)}
+                style={[hsStyles.primaryBtn, { marginTop: SPACING.lg }]}
+                onPress={() => navigation.goBack()}
               >
-                <Text
-                  style={[
-                    styles.slotText,
-                    selectedTime === slot.time && styles.slotTextActive,
-                  ]}
-                >
-                  {slot.time}
-                </Text>
+                <Text style={hsStyles.primaryBtnText}>Go Back</Text>
               </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </ScrollView>
+            </View>
+          ) : (
+            <>
+              {provider.fullName ? (
+                <View style={[styles.summaryCard, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
+                    <View style={[hsStyles.avatar, { width: 50, height: 50 }]}>
+                      <Text style={[hsStyles.avatarText, { fontSize: 20 }]}>{provider.fullName.charAt(0)}</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: SPACING.sm }}>
+                      <Text style={styles.summaryName}>{provider.fullName}</Text>
+                      {provider.specialization ? <Text style={hsStyles.muted}>{provider.specialization}</Text> : null}
+                      {provider.profession ? <Text style={[hsStyles.muted, { marginTop: 4, fontSize: 12 }]}>Clinic Name: {provider.profession}</Text> : null}
+                    </View>
+                  </View>
+                  {provider.homeAddress && (
+                    <View style={{ marginTop: SPACING.sm, paddingLeft: 60, flexDirection: 'row' }}>
+                      <Text style={{ color: '#E74C3C', marginRight: 4 }}>📍</Text>
+                      <Text style={{ flex: 1, fontSize: 12, color: '#3b82f6' }}>{provider.homeAddress}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity style={{ width: '100%', alignItems: 'flex-end', marginTop: 8 }} onPress={() => navigation.navigate('ProviderDetails' as any, { providerId, role, categoryId })}>
+                     <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.summaryCard}>
+                  <View style={hsStyles.avatar}>
+                    <Text style={hsStyles.avatarText}>{providerMock?.providerName || 'P'}</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: SPACING.sm }}>
+                    <Text style={styles.summaryName}>{providerMock?.providerName}</Text>
+                  </View>
+                  <View style={styles.categoryPill}>
+                    <Text style={styles.categoryPillText}>{category?.emoji || '🏠'} Home</Text>
+                  </View>
+                </View>
+              )}
 
-      <View
-        style={[
-          hsStyles.footer,
-          {
-            paddingBottom:
-              Platform.OS === 'android'
-                ? Math.max(insets.bottom, SAFE_AREA.safeBottom) + SPACING.xs
-                : insets.bottom,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            hsStyles.primaryBtn,
-            !selectedTime && styles.btnDisabled,
-          ]}
-          disabled={!selectedTime}
-          onPress={handleContinue}
-        >
-          <Text style={hsStyles.primaryBtnText}>Continue</Text>
-        </TouchableOpacity>
-      </View>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Select date header with calendar toggle */}
+            <View style={styles.sectionHeader}>
+              <Text style={hsStyles.sectionTitle}>Select date</Text>
+              <TouchableOpacity style={styles.calendarButton} onPress={toggleCalendar}>
+                <Text style={styles.calendarIcon}>🗓</Text>
+                <Text style={styles.selectText}>Select</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Expandable Calendar */}
+            {isCalendarVisible && (
+              <View style={styles.calendarCard}>
+                <View style={styles.dateNavigation}>
+                  <TouchableOpacity style={styles.navButton} onPress={handlePrevMonth}>
+                    <Text style={styles.navButtonText}>‹</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.currentMonth}>{currentMonth.format('MMMM YYYY')}</Text>
+                  <TouchableOpacity style={styles.navButton} onPress={handleNextMonth}>
+                    <Text style={styles.navButtonText}>›</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.calendarHeader}>
+                  {DAY_HEADERS.map(d => (
+                    <Text key={d} style={styles.calendarHeaderText}>{d}</Text>
+                  ))}
+                </View>
+
+                <View style={styles.calendarGrid}>
+                  {generateCalendarDays().map(day => renderCalendarDay(day))}
+                </View>
+              </View>
+            )}
+
+            {/* Quick date chips with availability status */}
+            <View style={styles.dateRow}>
+              {quickDates.map(d => {
+                const dateSlots = allDateSlots.find(ds => ds.date === d.date);
+                const hasSlots = dateSlots && dateSlots.availableSlots > 0;
+                const statusText = hasSlots ? 'Check availability' : 'No slots available';
+
+                return (
+                  <TouchableOpacity
+                    key={d.date}
+                    style={[
+                      styles.dateChip,
+                      selectedDate === d.date && styles.dateChipActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedDate(d.date);
+                      setSelectedTime(null);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.dateChipText,
+                        selectedDate === d.date && styles.dateChipTextActive,
+                      ]}
+                    >
+                      {d.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dateChipStatus,
+                        selectedDate === d.date && styles.dateChipStatusActive,
+                        !hasSlots && styles.dateChipStatusUnavailable,
+                      ]}
+                    >
+                      {statusText}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Selected date display */}
+            <Text style={[hsStyles.sectionTitle, { marginTop: SPACING.lg }]}>
+              {moment(selectedDate).format('dddd, DD MMM')}
+            </Text>
+
+            {/* Slots grid or no availability message */}
+            <View style={styles.slotGrid}>
+              {slots.length === 0 ? (
+                <Text style={[styles.noSlotsText]}>No slots available</Text>
+              ) : (
+                slots.map(slot => (
+                  <TouchableOpacity
+                    key={slot.time}
+                    style={[
+                      styles.slotBtn,
+                      slot.status === 'booked' && styles.slotBtnBooked,
+                      selectedTime === slot.time && styles.slotBtnActive,
+                    ]}
+                    onPress={() => {
+                      if (slot.status === 'available') {
+                        setSelectedTime(slot.time);
+                      }
+                    }}
+                    disabled={slot.status === 'booked'}
+                  >
+                    <Text
+                      style={[
+                        styles.slotText,
+                        slot.status === 'booked' && styles.slotTextBooked,
+                        selectedTime === slot.time && styles.slotTextActive,
+                      ]}
+                    >
+                      {slot.time}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          </ScrollView>
+
+          <View
+            style={[
+              hsStyles.footer,
+              {
+                paddingBottom:
+                  Platform.OS === 'android'
+                    ? Math.max(insets.bottom, SAFE_AREA.safeBottom) + SPACING.xs
+                    : insets.bottom,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                hsStyles.primaryBtn,
+                !selectedTime && styles.btnDisabled,
+              ]}
+              disabled={!selectedTime}
+              onPress={handleContinue}
+            >
+              <Text style={hsStyles.primaryBtnText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+            </>
+          )}
+        </>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  centerContent: { justifyContent: 'center', alignItems: 'center' },
+  loadingText: {
+    fontSize: moderateScale(14),
+    color: HS_COLORS.text,
+    marginTop: SPACING.md,
+  },
+  errorText: {
+    fontSize: moderateScale(16),
+    color: HS_COLORS.danger || '#E74C3C',
+    marginTop: SPACING.md,
+    fontWeight: '600',
+  },
   summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -498,6 +640,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dateChipTextActive: { color: '#FFF' },
+  dateChipStatus: {
+    fontSize: moderateScale(10),
+    color:  '#6B7280',
+    textAlign: 'center',
+    marginTop: SPACING.xxs,
+  },
+  dateChipStatusActive: { color: '#FFF' },
+  dateChipStatusUnavailable: { color: '#EF4444' },
+  noSlotsText: {
+    fontSize: moderateScale(14),
+    color: HS_COLORS.text,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginVertical: SPACING.lg,
+  },
   slotGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -517,12 +674,17 @@ const styles = StyleSheet.create({
     backgroundColor: HS_COLORS.primary,
     borderColor: HS_COLORS.primary,
   },
+  slotBtnBooked: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#D1D5DB',
+  },
   slotText: {
     fontSize: moderateScale(12),
     fontWeight: '600',
     color: HS_COLORS.primary,
   },
   slotTextActive: { color: '#FFF' },
+  slotTextBooked: { color: '#9CA3AF' },
   btnDisabled: { opacity: 0.5, backgroundColor: '#94A3B8' },
 });
 

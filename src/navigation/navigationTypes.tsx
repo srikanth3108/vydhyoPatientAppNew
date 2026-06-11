@@ -46,19 +46,16 @@ export type RootStackParamList = {
   HomeServiceSlotSelection: {
     providerId: string;
     categoryId: string;
-    serviceId: string;
   };
   HomeServiceReason: {
     providerId: string;
     categoryId: string;
-    serviceId: string;
     date: string;
     time: string;
   };
   HomeServiceSelectPatient: {
     providerId: string;
     categoryId: string;
-    serviceId: string;
     date: string;
     time: string;
     reason: string;
@@ -66,7 +63,6 @@ export type RootStackParamList = {
   HomeServiceAddress: {
     providerId: string;
     categoryId: string;
-    serviceId: string;
     date: string;
     time: string;
     reason: string;
@@ -75,7 +71,6 @@ export type RootStackParamList = {
   HomeServiceReviewPay: {
     providerId: string;
     categoryId: string;
-    serviceId: string;
     date: string;
     time: string;
     reason: string;
@@ -280,7 +275,6 @@ DateSelection: {
     selectedOption: string | null;
     categoryId?: string;
     providerId?: string;
-    serviceId?: string;
     date?: string;
     time?: string;
     patient?: any;

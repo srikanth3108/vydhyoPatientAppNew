@@ -644,7 +644,6 @@ const Login = () => {
   };
 
   const getButtonText = () => {
-    console.log('Determining button text with state:', { loginMethod, isOtpSent });
     if (loginMethod === 'pin') return t('loginWithPin');
     if (isOtpSent) return t('verifyContinue');
     return t('sendOtp');
@@ -657,7 +656,7 @@ const Login = () => {
   };
 
   // Check if PIN error indicates PIN doesn't exist
-  // const shouldShowForgotPin = () => {
+  // const shouldShowForgotPin = () => {India@1947
   //   if (pinError && (pinError.includes('PIN not set'))) {
   //     return false;
   //   }

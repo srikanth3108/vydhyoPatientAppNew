@@ -1,105 +1,198 @@
-import axios from 'axios';
+// api.ts
 
-// const BASE_URL = "http://vitals-backend-app-env.eba-2zkpksar.ap-south-1.elasticbeanstalk.com/api/v1";
-// const BASE_URL = 'http://192.168.0.21:3000';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios, {
+  AxiosError,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from "axios";
 
-//Live server IP address
-const BASE_URL = 'https://server.vydhyo.com';
+// ── Retry config ────────────────────────────────────────────────────────────
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = [1000, 2000, 4000]; // exponential back-off
 
-//Testing IP address
-// const BASE_URL = 'http://172.16.16.83:3000';
+const sleep = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
 
-// const BASE_URL = 'http://192.168.0.21:3000';
-// const BASE_URL = "http://216.10.251.239:3000";
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    requiresAuth?: boolean;
+    _retryCount?: number;   // internal retry counter
+  }
+}
 
-// Common error handling function
+
+
+// ==============================
+// BASE URL
+// ==============================
+
+const BASE_URL = "http://localhost:3000/";
+
+// ==============================
+// AXIOS INSTANCE
+// ==============================
+
+const contentType = 'application/json'
+const httpClient = axios.create({
+  baseURL: BASE_URL,
+
+  headers: {
+    deviceType: "Mobile",
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
+  timeout: 30000,
+});
+
+// ==============================
+// REQUEST INTERCEPTOR
+// ==============================
+
+httpClient.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    try {
+      // Add Token
+      if (config.requiresAuth) {
+        const token = await AsyncStorage.getItem("authToken");
+
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      }
+
+      // Handle FormData
+      if (config.data instanceof FormData) {
+        config.headers["Content-Type"] =
+          "multipart/form-data";
+      }
+
+      console.log(
+        "API REQUEST =>",
+        `${config.baseURL}${config.url}`
+      );
+
+      console.log("REQUEST DATA =>", config.data);
+
+      return config;
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  },
+  (error) => Promise.reject(error)
+);
+// ==============================
+// RESPONSE INTERCEPTOR
+// ==============================
+
+httpClient.interceptors.response.use(
+  (response: AxiosResponse) => {
+    console.log("API RESPONSE =>", response.data);
+
+    return response;
+  },
+  async (error: AxiosError<any>) => {
+    const config = error.config as AxiosRequestConfig & { _retryCount?: number };
+
+    // Only retry on genuine network failures (no response from server)
+    // Do NOT retry on 4xx / 5xx — those are intentional server responses.
+    const isNetworkError = !error.response && !!error.request;
+
+    if (isNetworkError && config && (config._retryCount ?? 0) < MAX_RETRIES) {
+      config._retryCount = (config._retryCount ?? 0) + 1;
+
+      const delayMs = RETRY_DELAY_MS[config._retryCount - 1] ?? 4000;
+      console.log(
+        `[Network] Retry ${config._retryCount}/${MAX_RETRIES} in ${delayMs / 1000}s — ${config.url}`,
+      );
+
+      await sleep(delayMs);
+      return httpClient(config);
+    }
+
+    console.log("API ERROR =>", error);
+    return Promise.reject(handleError(error));
+  }
+);
+
+// ==============================
+// COMMON ERROR HANDLER
+// ==============================
+
 const handleError = (err: any) => {
-    console.error('API Error:', err);
+  console.error("API Error:", err);
+
   if (err?.response?.data?.message) {
     const message = err.response.data.message;
-    console.log("errormessage",message);
-    // Ensure message is a string, not an object
-    const messageStr = message?.message || "Something went wrong";
-    return { message: messageStr, status: 'error' };
-  } else if (err?.response?.data?.error) {
-    const error = err.response.data.error;
-    // Ensure error is a string, not an object
-    const errorStr = typeof error === 'string' ? error : JSON.stringify(error);
-    return { message: errorStr, status: 'error' };
+
+    return {
+      message:
+        typeof message === "string"
+          ? message
+          : message?.message ||
+            "Something went wrong",
+
+      status: "error",
+    };
   }
-  return { message: 'Something went wrong', status: 'error' };
+
+  if (err?.response?.data?.error) {
+    const error = err.response.data.error;
+
+    return {
+      message:
+        typeof error === "string"
+          ? error
+          : JSON.stringify(error),
+
+      status: "error",
+    };
+  }
+
+  return {
+    message: "Something went wrong",
+    status: "error",
+  };
 };
 
-// Common API function
+// ==============================
+// COMMON API REQUEST FUNCTION
+// ==============================
+
 interface ApiRequestParams {
   url: string;
-  method?: string;
+  method?: "get" | "post" | "put" | "delete" | "patch";
   data?: any;
-  token?: string | null | undefined;
+  requiresAuth?: boolean;
   contentType?: string;
 }
 
-export async function apiRequest({ 
-  url, 
-  method = 'get', 
-  data = null, 
-  token = null as string | null | undefined, 
-  contentType = 'application/json' 
+export async function apiRequest({
+  url,
+  method = "get",
+  data = null,
+  requiresAuth = false,
+  contentType = "application/json",
 }: ApiRequestParams) {
   try {
-    const fullUrl =`${BASE_URL}/${url}`;
-    console.log("datafullurl",fullUrl)
-    const config = {
+    const response = await httpClient({
+      url,
       method,
-      url: fullUrl,
+      data,
+      requiresAuth,
+
       headers: {
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...(contentType && { 'Content-Type': contentType }),
+        "Content-Type": contentType,
       },
-      ...(typeof data === 'object' && data !== null ? { data } : {}),
+    });
+
+    return {
+      data: response.data,
+      status: "success",
     };
-// console.log("apiconfig",config)
-    const response = await axios(config);
-    console.log("apiresponse",response);
-    return { data: response.data, status: 'success' };
-  } catch (err) {
-    console.log('API Request login Error:', err);
-    return handleError(err);
+  } catch (err: any) {
+    return err;
   }
 }
 
-// Specific functions using the common apiRequest
-export async function AuthFetch(url: string, token: string | null | undefined) {
-  return apiRequest({ url, method: 'get', token });
-}
-
-export async function AuthPost(url: string, body: any, token: string | null | undefined) {
-  return apiRequest({ url, method: 'post', data: body, token });
-}
-
-export async function AuthPut(url: string, body: any, token: string | null | undefined) {
-  return apiRequest({ url, method: 'put', data: body, token });
-}
-
-export async function UploadFiles(url: string, body: any, token: string | null | undefined) {
-  return apiRequest({ 
-    url, 
-    method: 'post', 
-    data: body, 
-    token, 
-    contentType: 'multipart/form-data' 
-  });
-}
-
-export async function UsePost(url: string, body: any) {
-  console.log("body",url, body)
-  return apiRequest({ url, method: 'post', data: body });
-}
-
-export async function authDelete(
-  url: string,
-  body: any,
-  token: string
-) {
-  return apiRequest({ url, method: 'delete', data: body, token });
-}
+export default httpClient;

@@ -6,7 +6,6 @@ const handleError = (err: any) => {
   console.error('API Error:', err);
   if (err?.response?.data?.message) {
     const message = err.response.data.message;
-    console.log("errormessage", message);
     // Ensure message is a string, not an object
     const messageStr = message?.message || "Something went wrong";
     return { message: messageStr, status: 'error' };
@@ -47,8 +46,9 @@ export async function apiRequest({
       },
       ...(typeof data === 'object' && data !== null ? { data } : {}),
     };
+    console.log("apiconfig", `${BASE_URL}/${url}`);
     const response = await axios(config);
-    console.log("apiresponse", response);
+    console.log("apiresponse", response.data);
     return { data: response.data, status: 'success' };
   } catch (err) {
     console.log('API Request login Error:', err);
@@ -80,7 +80,6 @@ export async function UploadFiles(url: string, body: any, token: string | null |
 }
 
 export async function UsePost(url: string, body: any) {
-  console.log("body", url, body);
   return apiRequest({ url, method: 'post', data: body });
 }
 
