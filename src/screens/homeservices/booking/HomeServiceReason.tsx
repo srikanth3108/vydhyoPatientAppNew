@@ -92,7 +92,8 @@ const HomeServiceReason: React.FC = () => {
       ...route.params,
       provider,
       reason: trimmed,
-    });
+      attachments,
+    } as any);
   };
 
   return (
@@ -163,35 +164,47 @@ const HomeServiceReason: React.FC = () => {
               </Text>
               <View style={styles.uploadContainer}>
                 <Text style={hsStyles.sectionTitle}>
-                  Medical Reports
+                  Medical Reports (Optional)
                 </Text>
-
+                
                 <TouchableOpacity
-                  style={styles.uploadButton}
+                  style={styles.uploadArea}
                   onPress={openDocumentPicker}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.uploadButtonText}>
-                    + Add Images or PDF
+                  <View style={styles.uploadIconContainer}>
+                    <Text style={styles.uploadIcon}>📄</Text>
+                  </View>
+                  <Text style={styles.uploadTitle}>
+                    Upload Images or PDF
+                  </Text>
+                  <Text style={styles.uploadSubtitle}>
+                    Up to 5MB per file
                   </Text>
                 </TouchableOpacity>
 
                 {attachments.length > 0 && (
                   <View style={styles.fileList}>
                     {attachments.map((file, index) => (
-                      <View key={index} style={styles.fileItem}>
-                        <Text
-                          numberOfLines={1}
-                          style={styles.fileName}
-                        >
-                          {file.name}
-                        </Text>
-
+                      <View key={index} style={styles.fileCard}>
+                        <View style={styles.fileIconBox}>
+                          <Text style={styles.fileIcon}>
+                            {file.type?.includes('pdf') ? '📕' : '🖼️'}
+                          </Text>
+                        </View>
+                        <View style={styles.fileInfo}>
+                          <Text numberOfLines={1} style={styles.fileName}>
+                            {file.name}
+                          </Text>
+                          <Text style={styles.fileSize}>
+                            {file.size ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown size'}
+                          </Text>
+                        </View>
                         <TouchableOpacity
+                          style={styles.removeBtn}
                           onPress={() => removeAttachment(index)}
                         >
-                          <Text style={styles.removeText}>
-                            Remove
-                          </Text>
+                          <Text style={styles.removeIcon}>✕</Text>
                         </TouchableOpacity>
                       </View>
                     ))}
@@ -281,47 +294,80 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
 
-  uploadButton: {
-    borderWidth: 1,
-    borderColor: HS_COLORS.primary,
+  uploadArea: {
+    borderWidth: 1.5,
+    borderColor: '#93C5FD',
     borderStyle: 'dashed',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: LAYOUT.borderRadius.lg,
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFF',
+    backgroundColor: '#EFF6FF',
   },
-
-  uploadButtonText: {
-    color: HS_COLORS.primary,
-    fontSize: 14,
-    fontWeight: '600',
+  uploadIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
   },
-
-  fileList: {
-    marginTop: 14,
-    gap: 10,
+  uploadIcon: { fontSize: 24 },
+  uploadTitle: {
+    color: '#1E3A8A',
+    fontSize: moderateScale(14),
+    fontWeight: '700',
+    marginBottom: 4,
   },
-
-  fileItem: {
+  uploadSubtitle: {
+    color: '#60A5FA',
+    fontSize: moderateScale(11),
+  },
+  fileList: { marginTop: SPACING.md, gap: SPACING.sm },
+  fileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: HS_COLORS.border,
+    borderRadius: LAYOUT.borderRadius.md,
+    padding: SPACING.sm,
   },
-
+  fileIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  fileIcon: { fontSize: 18 },
+  fileInfo: { flex: 1, marginRight: SPACING.sm },
   fileName: {
-    flex: 1,
-    color: HS_COLORS.primary,
-    marginRight: 10,
-  },
-
-  removeText: {
-    color: '#E53935',
+    color: HS_COLORS.text,
+    fontSize: moderateScale(13),
     fontWeight: '600',
+    marginBottom: 2,
+  },
+  fileSize: {
+    color: HS_COLORS.textMuted,
+    fontSize: moderateScale(11),
+  },
+  removeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeIcon: {
+    color: '#EF4444',
+    fontSize: moderateScale(12),
+    fontWeight: '700',
   },
 });
 

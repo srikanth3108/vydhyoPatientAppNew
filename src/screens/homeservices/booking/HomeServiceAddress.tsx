@@ -65,6 +65,7 @@ const HomeServiceAddress: React.FC = () => {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isAddingNew, setIsAddingNew] = useState(false);
 
 
   React.useEffect(() => {
@@ -92,10 +93,16 @@ const HomeServiceAddress: React.FC = () => {
 
             setUseSaved(true);
             setSelectedAddressId(first.addressId);
+            setIsAddingNew(false);
+          } else {
+            setIsAddingNew(true);
           }
+        } else {
+          setIsAddingNew(true);
         }
       } catch (err) {
         console.log('[HomeServiceAddress] Fetch addresses error:', err);
+        setIsAddingNew(true);
       } finally {
         setLoadingAddresses(false);
       }
@@ -141,11 +148,11 @@ const HomeServiceAddress: React.FC = () => {
   };
 
   const handleConfirm = async () => {
-    if (!validate()) return;
+    if (isAddingNew && !validate()) return;
 
     setSubmitting(true);
     let currentAddressId = selectedAddressId;
-    if (!useSaved) {
+    if (isAddingNew || !useSaved) {
       try {
         const token = await AsyncStorage.getItem('authToken');
         const payload = {
@@ -206,23 +213,24 @@ const HomeServiceAddress: React.FC = () => {
             </View>
           )}
 
-          <TouchableOpacity
-            style={styles.mapPreview}
-            onPress={() => setShowLocationModal(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.mapEmoji}>📍</Text>
-            <Text style={styles.mapTitle}>Locate on Map / Use GPS</Text>
-            <Text style={hsStyles.muted}>
-              Tap to auto-detect or select exact location
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.addressHeaderRow}>
+            <Text style={[hsStyles.sectionTitle, { marginVertical: 0 }]}>Select Address</Text>
+            {addresses.length > 0 && !isAddingNew && (
+              <TouchableOpacity onPress={() => setIsAddingNew(true)}>
+                <Text style={styles.addNewBtnText}>+ Add New</Text>
+              </TouchableOpacity>
+            )}
+            {isAddingNew && addresses.length > 0 && (
+              <TouchableOpacity onPress={() => setIsAddingNew(false)}>
+                <Text style={styles.addNewBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {loadingAddresses ? (
             <ActivityIndicator size="small" color={HS_COLORS.primary} style={{ marginVertical: SPACING.md }} />
-          ) : addresses.length > 0 ? (
-            <View style={{ marginBottom: SPACING.md }}>
-              <Text style={[hsStyles.sectionTitle, { marginBottom: SPACING.sm }]}>Saved addresses</Text>
+          ) : !isAddingNew && addresses.length > 0 ? (
+            <View style={{ marginBottom: SPACING.md, marginTop: SPACING.sm }}>
               {addresses.map(addr => (
                 <TouchableOpacity
                   key={addr.addressId}
@@ -239,24 +247,50 @@ const HomeServiceAddress: React.FC = () => {
                     setUseSaved(true);
                     setSelectedAddressId(addr.addressId);
                   }}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.savedLabel}>{addr.type || 'Home'}</Text>
-                  <Text style={hsStyles.muted} numberOfLines={2}>
-                    {addr.address}, {addr.city} {addr.pincode}
-                  </Text>
+                  <View style={styles.savedCardHeader}>
+                    <View style={styles.savedIconContainer}>
+                      <Text style={styles.savedIcon}>{addr.type?.toLowerCase() === 'home' ? '🏠' : '📍'}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.savedLabel}>{addr.type || 'Home'}</Text>
+                      <Text style={styles.savedAddressText} numberOfLines={2}>
+                        {addr.address}, {addr.city} {addr.pincode}
+                      </Text>
+                    </View>
+                    <View style={[styles.radioBtn, selectedAddressId === addr.addressId && styles.radioBtnActive]}>
+                      {selectedAddressId === addr.addressId && <View style={styles.radioInner} />}
+                    </View>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
           ) : null}
 
-          <Text style={[hsStyles.sectionTitle, { marginTop: SPACING.xs }]}>Address details</Text>
-
-          <Field label="Building / Apartment *" value={form.building} onChange={v => update('building', v)} />
-          <Field label="Floor & Flat" value={form.floorFlat || ''} onChange={v => update('floorFlat', v)} optional />
-          <Field label="Street / Locality *" value={form.street} onChange={v => update('street', v)} />
-          <Field label="Landmark" value={form.landmark || ''} onChange={v => update('landmark', v)} optional />
-          <Field label="Pincode *" value={form.pincode} onChange={v => update('pincode', v)} keyboard="number-pad" maxLength={6} />
-          <Field label="City & State *" value={form.cityState} onChange={v => update('cityState', v)} />
+          {isAddingNew && (
+            <View style={styles.newAddressForm}>
+              <TouchableOpacity
+                style={styles.mapPreview}
+                onPress={() => setShowLocationModal(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.mapEmoji}>📍</Text>
+                <Text style={styles.mapTitle}>Locate on Map / Use GPS</Text>
+                <Text style={hsStyles.muted}>
+                  Tap to auto-detect or select exact location
+                </Text>
+              </TouchableOpacity>
+              
+              <Text style={[hsStyles.sectionTitle, { marginTop: SPACING.xs, marginBottom: SPACING.sm }]}>Address details</Text>
+              <Field label="Building / Apartment *" value={form.building} onChange={v => update('building', v)} />
+              <Field label="Floor & Flat" value={form.floorFlat || ''} onChange={v => update('floorFlat', v)} optional />
+              <Field label="Street / Locality *" value={form.street} onChange={v => update('street', v)} />
+              <Field label="Landmark" value={form.landmark || ''} onChange={v => update('landmark', v)} optional />
+              <Field label="Pincode *" value={form.pincode} onChange={v => update('pincode', v)} keyboard="number-pad" maxLength={6} />
+              <Field label="City & State *" value={form.cityState} onChange={v => update('cityState', v)} />
+            </View>
+          )}
 
         </ScrollView>
 
@@ -348,24 +382,81 @@ const styles = StyleSheet.create({
     color: HS_COLORS.primary,
     marginTop: SPACING.xs,
   },
-  savedCard: {
-    backgroundColor: HS_COLORS.card,
-    borderRadius: LAYOUT.borderRadius.md,
+  addressHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  addNewBtnText: {
+    color: HS_COLORS.primary,
+    fontSize: moderateScale(13),
+    fontWeight: '700',
+  },
+  newAddressForm: {
+    marginTop: SPACING.sm,
+    backgroundColor: '#FFF',
     padding: SPACING.md,
+    borderRadius: LAYOUT.borderRadius.lg,
     borderWidth: 1,
     borderColor: HS_COLORS.border,
-    marginBottom: SPACING.md,
+  },
+  savedCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: LAYOUT.borderRadius.lg,
+    padding: SPACING.md,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    marginBottom: SPACING.sm,
   },
   savedCardActive: {
-    borderColor: HS_COLORS.accent,
-    borderWidth: 2,
-    backgroundColor: '#F0FDF4',
+    borderColor: HS_COLORS.primary,
+    backgroundColor: '#EFF6FF',
   },
+  savedCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  savedIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  savedIcon: { fontSize: 20 },
   savedLabel: {
     fontSize: moderateScale(14),
-    fontWeight: '600',
+    fontWeight: '700',
     color: HS_COLORS.text,
-    marginBottom: SPACING.xxs,
+    marginBottom: 2,
+  },
+  savedAddressText: {
+    fontSize: moderateScale(12),
+    color: HS_COLORS.textMuted,
+    lineHeight: moderateScale(18),
+  },
+  radioBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: SPACING.sm,
+  },
+  radioBtnActive: {
+    borderColor: HS_COLORS.primary,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: HS_COLORS.primary,
   },
   field: { marginBottom: SPACING.sm },
   label: {

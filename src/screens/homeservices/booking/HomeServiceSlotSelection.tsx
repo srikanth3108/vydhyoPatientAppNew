@@ -78,10 +78,8 @@ const HomeServiceSlotSelection: React.FC = () => {
            setAllDateSlots([]);
         } else if (slotsResult.data?.dates) {
           setAllDateSlots(slotsResult.data.dates);
-          // Set first available date
-          if (slotsResult.data.dates.length > 0) {
-            setSelectedDate(slotsResult.data.dates[0].date);
-          }
+          // Default to current day
+          setSelectedDate(moment().format('YYYY-MM-DD'));
           if (!providerResult.provider && slotsResult.data.provider) {
              setProvider(slotsResult.data.provider);
           }

@@ -234,6 +234,7 @@ const ProviderDetailsScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor={HS_COLORS.primary} />
       <ScrollView
         showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: '#F8FAFC' }}
         contentContainerStyle={{
           paddingBottom:
             moderateScale(120) +
@@ -294,17 +295,19 @@ const ProviderDetailsScreen: React.FC = () => {
             </View>
           </View>
 
-          <View style={styles.locationSection}>
-            <Text style={styles.locationText}>
-              📍 {displayProvider.location}
-            </Text>
-            <Text style={styles.distanceText}>
-              {displayProvider.distance} away
-            </Text>
+            <View style={styles.locationSection}>
+              <View style={styles.locationIconBg}>
+                <Text style={{ fontSize: 16 }}>📍</Text>
+              </View>
+              <View>
+                <Text style={styles.locationText}>{displayProvider.location}</Text>
+                <Text style={styles.distanceText}>{displayProvider.distance} away</Text>
+              </View>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.quickInfoContainer}>
+          {/* Floating Quick Info Cards */}
+          <View style={styles.quickInfoContainer}>
           <View style={styles.infoCard}>
             <Text style={styles.infoIcon}>⭐</Text>
             <View>
@@ -335,9 +338,7 @@ const ProviderDetailsScreen: React.FC = () => {
           provider.specialization ||
           provider.profession) && (
           <View style={styles.sectionContainer}>
-            <Text style={[hsStyles.sectionTitle, {marginBottom: SPACING.md}]}>
-              Professional Details
-            </Text>
+            <Text style={styles.sectionTitlePremium}>Professional Details</Text>
             <View style={styles.pillRow}>
               {provider.profession && (
                 <View style={styles.pill}>
@@ -363,9 +364,7 @@ const ProviderDetailsScreen: React.FC = () => {
         )}
 
         <View style={styles.sectionContainer}>
-          <Text style={[hsStyles.sectionTitle, {marginBottom: SPACING.md}]}>
-            Specialties
-          </Text>
+          <Text style={styles.sectionTitlePremium}>Specialties</Text>
           <View style={styles.specialtiesRow}>
             {displayProvider.specialties.map(spec => (
               <View key={spec} style={styles.specialtyTag}>
@@ -377,9 +376,7 @@ const ProviderDetailsScreen: React.FC = () => {
 
         {provider.documents && provider.documents.length > 0 && (
           <View style={styles.sectionContainer}>
-            <Text style={[hsStyles.sectionTitle, {marginBottom: SPACING.md}]}>
-              Documents
-            </Text>
+            <Text style={styles.sectionTitlePremium}>Documents</Text>
             {provider.documents.map((doc, idx) => (
               <View key={idx} style={styles.certificationItem}>
                 <Text style={styles.certIcon}>📄</Text>
@@ -393,27 +390,24 @@ const ProviderDetailsScreen: React.FC = () => {
           provider.dateOfBirth ||
           provider.totalExperience) && (
           <View style={styles.sectionContainer}>
-            <Text style={[hsStyles.sectionTitle, {marginBottom: SPACING.md}]}>
-              Personal Details
-            </Text>
+            <Text style={styles.sectionTitlePremium}>Personal Details</Text>
             {provider.gender && (
               <View style={styles.availCard}>
-                <Text style={styles.availLine}>
-                  👤 Gender: {provider.gender}
-                </Text>
+                <View style={styles.availIconBox}><Text>👤</Text></View>
+                <Text style={styles.availLine}>Gender: {provider.gender}</Text>
               </View>
             )}
             {provider.totalExperience && (
               <View style={styles.availCard}>
-                <Text style={styles.availLine}>
-                  💼 Experience: {provider.totalExperience} years
-                </Text>
+                <View style={styles.availIconBox}><Text>💼</Text></View>
+                <Text style={styles.availLine}>Experience: {provider.totalExperience} years</Text>
               </View>
             )}
           </View>
         )}
 
         <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitlePremium}>Ratings & Reviews</Text>
           <RatingBreakdown
             rating={displayProvider.rating}
             reviewCount={displayProvider.reviewCount}
@@ -454,14 +448,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerBg: {
-    backgroundColor: HS_COLORS.primary,
+    backgroundColor:HS_COLORS.primary,
     paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.lg,
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.xxl * 1.5,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   profileHeader: {
     flexDirection: 'row',
     marginBottom: SPACING.lg,
+    alignItems: 'center',
   },
   profileInfo: {
     flex: 1,
@@ -514,57 +511,73 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   locationSection: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: LAYOUT.borderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: LAYOUT.borderRadius.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+  },
+  locationIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
   },
   locationText: {
-    fontSize: moderateScale(13),
+    fontSize: moderateScale(14),
     color: '#FFF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   distanceText: {
     fontSize: moderateScale(11),
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.9)',
     marginTop: 2,
   },
   quickInfoContainer: {
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
     flexDirection: 'row',
     gap: SPACING.sm,
-    backgroundColor: HS_COLORS.bg,
+    marginTop: -SPACING.xl,
+    marginBottom: SPACING.md,
   },
   infoCard: {
     flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#FFF',
-    borderRadius: LAYOUT.borderRadius.md,
-    padding: SPACING.sm,
-    borderWidth: 1,
-    borderColor: HS_COLORS.border,
+    borderRadius: LAYOUT.borderRadius.lg,
+    padding: SPACING.md,
+    ...LAYOUT.shadow.sm,
   },
   infoIcon: {
-    fontSize: moderateScale(20),
-    marginRight: SPACING.sm,
+    fontSize: moderateScale(22),
+    marginBottom: SPACING.sm,
   },
   infoLabel: {
-    fontSize: moderateScale(10),
+    fontSize: moderateScale(11),
     color: HS_COLORS.textMuted,
+    marginBottom: 2,
   },
   infoValue: {
-    fontSize: moderateScale(12),
-    fontWeight: '600',
+    fontSize: moderateScale(13),
+    fontWeight: '700',
     color: HS_COLORS.text,
   },
   sectionContainer: {
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: HS_COLORS.bg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  sectionTitlePremium: {
+    fontSize: moderateScale(16),
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: SPACING.md,
+    letterSpacing: 0.2,
   },
   pillRow: {
     flexDirection: 'row',
@@ -592,12 +605,10 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   specialtyTag: {
-    backgroundColor: HS_COLORS.accentSoft,
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    borderRadius: LAYOUT.borderRadius.xl,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderRadius: LAYOUT.borderRadius.lg,
   },
   specialtyText: {
     fontSize: moderateScale(13),
@@ -611,17 +622,27 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
   availCard: {
-    backgroundColor: '#F8FAFC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
     borderRadius: LAYOUT.borderRadius.lg,
     padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: HS_COLORS.border,
     marginBottom: SPACING.sm,
+    ...LAYOUT.shadow.sm,
+  },
+  availIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
   },
   availLine: {
-    fontSize: moderateScale(12),
-    color: HS_COLORS.text,
-    marginBottom: 4,
+    fontSize: moderateScale(14),
+    fontWeight: '600',
+    color: '#334155',
   },
   certificationItem: {
     flexDirection: 'row',
@@ -776,11 +797,12 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.sm,
-    backgroundColor: HS_COLORS.bg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.md,
+    backgroundColor: '#FFF',
     borderTopWidth: 1,
-    borderTopColor: HS_COLORS.border,
+    borderTopColor: '#F1F5F9',
+    ...LAYOUT.shadow.lg,
   },
   footerRow: {
     flexDirection: 'row',
