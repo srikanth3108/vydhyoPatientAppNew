@@ -28,7 +28,12 @@ import Toast from 'react-native-toast-message';
 import { AuthFetch, AuthPost, ENDPOINTS } from '../../../services';
 import { useSelector } from 'react-redux';
 import { WebView } from 'react-native-webview';
-import { createProviderAppointment, providerPaymentSuccess, providerPaymentFailure, getProviderDetailsById } from '../../../services/homeCareService';
+import { 
+  createProviderAppointment, 
+  providerPaymentSuccess, 
+  getProviderDetailsById,
+  extractPaymentSessionFromResponse
+} from '../../../services/homeCareService';
 
 type Patient = {
   firstname: string;
@@ -259,10 +264,61 @@ const HomeServiceReviewPay: React.FC = () => {
       const latestStr = await AsyncStorage.getItem('latestAppointmentDetails');
       const appointmentDetails = latestStr ? JSON.parse(latestStr) : null;
       if (!appointmentDetails) return;
-      await providerPaymentFailure(appointmentDetails.appointmentId);
-      await AsyncStorage.removeItem('latestAppointmentDetails');
     } catch {
       // silent
+    }
+  };
+
+  // ─── Initiate Cashfree Payment Gateway ─────────────────
+  const initiateCashfreePaymentGateway = async (
+    fullResponse: any,
+    appointmentId: string,
+    platformFeeValue: number,
+  ) => {
+    try {
+      console.log('📤 Initiating Cashfree Payment Gateway');
+      console.log('Full Response:', fullResponse);
+
+      // Extract payment session from the appointment creation response
+      const paymentSessionData = extractPaymentSessionFromResponse(fullResponse);
+      
+      console.log('🔍 Extracted Payment Session:', paymentSessionData);
+
+      if (!paymentSessionData) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to extract payment session from response',
+        });
+        console.error('❌ Payment session extraction failed. Response:', fullResponse);
+        return;
+      }
+
+      console.log('✅ Payment session extracted successfully');
+
+      // Navigate to payment gateway screen with payment session details
+      navigation.navigate('HomeServicePaymentGateway', {
+        payment_session_id: paymentSessionData.payment_session_id,
+        order_id: paymentSessionData.order_id,
+        categoryId: params.categoryId,
+        providerId: params.providerId,
+        date: params.date,
+        time: params.time,
+        patient: params.patient,
+        address: params.formData,
+        reason: params.reason,
+        appointmentDetails: {
+          appointmentId,
+          platformFee: platformFeeValue,
+        },
+      });
+    } catch (error: any) {
+      console.error('❌ Error initiating payment gateway:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Payment Error',
+        text2: error?.message || 'Failed to initiate payment',
+      });
     }
   };
 
@@ -347,12 +403,9 @@ const HomeServiceReviewPay: React.FC = () => {
           } else {
             Toast.show({ type: 'error', text1: 'Payment Failed Verification', text2: `Order: ${linkId}` });
             await AsyncStorage.removeItem('linkId');
-            await providerPaymentFailure(orderId || linkId);
           }
         } else {
           Toast.show({ type: 'error', text1: 'Payment Failed', text2: `Order: ${linkId}` });
-          await AsyncStorage.removeItem('linkId');
-          await providerPaymentFailure(orderId || linkId);
         }
       } else {
         Toast.show({ type: 'error', text1: 'Payment Failed', text2: `Order: ${linkId}` });
@@ -360,7 +413,6 @@ const HomeServiceReviewPay: React.FC = () => {
         const latestStr = await AsyncStorage.getItem('latestAppointmentDetails');
         if (latestStr) {
           const appointmentDetails = JSON.parse(latestStr);
-          await providerPaymentFailure(appointmentDetails.appointmentId);
         }
       }
     } catch (error: any) {
@@ -501,10 +553,12 @@ const HomeServiceReviewPay: React.FC = () => {
             patient: params.patient,
             address: params.formData,
             reason: params.reason,
+            paymentStatus: 'success',
+            appointmentId,
           });
         } else if (upiAmount > 0) {
-          // UPI payment needed
-          await handleCashfreePayment(platformFeeValue, appointmentId);
+          // UPI payment needed - initiate Cashfree payment gateway
+          await initiateCashfreePaymentGateway(response.fullResponse, appointmentId, platformFeeValue);
         } else {
           // Zero-amount (fully discounted)
           navigation.replace('HomeServiceBookingConfirmation', {
@@ -518,6 +572,8 @@ const HomeServiceReviewPay: React.FC = () => {
             patient: params.patient,
             address: params.formData,
             reason: params.reason,
+            paymentStatus: 'success',
+            appointmentId,
           });
         }
       } else {

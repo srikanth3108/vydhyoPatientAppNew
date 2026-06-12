@@ -84,5 +84,7 @@ export const ENDPOINTS = {
   GET_FAMILY_MEMBERS: 'family-member/getFamilyMembers',
   ADD_FAMILY_MEMBER: 'family-member/addFamilyMember',
   UPDATE_FAMILY_MEMBER: 'family-member/updateFamilyMember',
+  CREATE_PROVIDER_APPOINTMENT:'appointment/createProviderAppointmentWithGateway',
+  PAYMENT_VERIFY:'appointment/verifyProviderAppointmentPayment'
   // DELETE_FAMILY_MEMBER: (familyMemberId: string) => `family-member/deleteFamilyMember/${familyMemberId}`,
 };

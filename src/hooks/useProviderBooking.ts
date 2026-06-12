@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import {
   createProviderAppointment,
   providerPaymentSuccess,
-  providerPaymentFailure,
   CreateAppointmentRequest,
   AppointmentData,
 } from '../services/homeCareService';
@@ -75,21 +74,7 @@ export const useProviderBooking = () => {
     [],
   );
 
-  const processPaymentFailure = useCallback(
-    async (appointmentId: string) => {
-      setState(prev => ({ ...prev, loading: true, error: null }));
-      const { success, error } = await providerPaymentFailure(appointmentId);
-      
-      if (!success) {
-        setState(prev => ({ ...prev, loading: false, error: error || 'Failed to process payment failure' }));
-        return { success: false, error };
-      }
-
-      setState(prev => ({ ...prev, loading: false }));
-      return { success: true };
-    },
-    [],
-  );
+;
 
   const resetState = useCallback(() => {
     setState({
@@ -104,7 +89,6 @@ export const useProviderBooking = () => {
     ...state,
     createAppointment,
     processPaymentSuccess,
-    processPaymentFailure,
     resetState,
   };
 };

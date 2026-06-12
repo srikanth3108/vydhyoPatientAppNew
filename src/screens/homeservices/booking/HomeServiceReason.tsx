@@ -10,6 +10,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -21,7 +22,7 @@ import RNFS from 'react-native-fs';
 
 type Params = {
   providerId: string;
-  categoryId: string;
+  provider: any;
   date: string;
   time: string;
 };
@@ -47,15 +48,8 @@ const HomeServiceReason: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const [reason, setReason] = useState('');
-  const [provider, setProvider] = useState<any>(null);
-
-  React.useEffect(() => {
-    const fetchProvider = async () => {
-      const res = await getProviderDetailsById(route.params.providerId);
-      if (res.provider) setProvider(res.provider);
-    };
-    fetchProvider();
-  }, [route.params.providerId]);
+  const [provider, setProvider] = useState<any>(route.params.provider);
+  const [loading, setLoading] = useState(true);
 
   const [attachments, setAttachments] = useState<any[]>([]);
   const openDocumentPicker = async () => {
@@ -96,6 +90,7 @@ const HomeServiceReason: React.FC = () => {
     if (!trimmed) return;
     navigation.navigate('HomeServiceSelectPatient', {
       ...route.params,
+      provider,
       reason: trimmed,
     });
   };
@@ -107,119 +102,125 @@ const HomeServiceReason: React.FC = () => {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.scroll}>
-          {provider?.fullName && (
-            <View style={[styles.summaryCard, { flexDirection: 'column', alignItems: 'flex-start' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
-                <View style={[hsStyles.avatar, { width: 50, height: 50 }]}>
-                  <Text style={[hsStyles.avatarText, { fontSize: 20 }]}>{provider.fullName.charAt(0)}</Text>
-                </View>
-                <View style={{ flex: 1, marginLeft: SPACING.sm }}>
-                  <Text style={styles.summaryName}>{provider.fullName}</Text>
-                  {provider.specialization ? <Text style={hsStyles.muted}>{provider.specialization}</Text> : null}
-                  {provider.profession ? <Text style={[hsStyles.muted, { marginTop: 4, fontSize: 12 }]}>Clinic Name: {provider.profession}</Text> : null}
-                </View>
-              </View>
-              {provider.homeAddress && (
-                <View style={{ marginTop: SPACING.sm, paddingLeft: 60, flexDirection: 'row' }}>
-                  <Text style={{ color: '#E74C3C', marginRight: 4 }}>📍</Text>
-                  <Text style={{ flex: 1, fontSize: 12, color: '#3b82f6' }}>{provider.homeAddress}</Text>
+            <ScrollView contentContainerStyle={styles.scroll}>
+              {provider?.fullName && (
+                <View style={[styles.summaryCard, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
+                    <View style={[hsStyles.avatar, { width: 50, height: 50 }]}>
+                      <Text style={[hsStyles.avatarText, { fontSize: 20 }]}>{provider.fullName.charAt(0)}</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: SPACING.sm }}>
+                      <Text style={styles.summaryName}>{provider.fullName}</Text>
+                      {provider.specialization ? <Text style={hsStyles.muted}>{provider.specialization}</Text> : null}
+                      {provider.profession ? <Text style={[hsStyles.muted, { marginTop: 4, fontSize: 12 }]}>Clinic Name: {provider.profession}</Text> : null}
+                    </View>
+                  </View>
+                  {provider.homeAddress && (
+                    <View style={{ marginTop: SPACING.sm, paddingLeft: 60, flexDirection: 'row' }}>
+                      <Text style={{ color: '#E74C3C', marginRight: 4 }}>📍</Text>
+                      <Text style={{ flex: 1, fontSize: 12, color: '#3b82f6' }}>{provider.homeAddress}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity style={{ width: '100%', alignItems: 'flex-end', marginTop: 8 }} onPress={() => navigation.navigate('ProviderDetails' as any, { providerId: route.params.providerId })}>
+                    <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
+                  </TouchableOpacity>
                 </View>
               )}
-              <TouchableOpacity style={{ width: '100%', alignItems: 'flex-end', marginTop: 8 }} onPress={() => navigation.navigate('ProviderDetails' as any, { providerId: route.params.providerId, categoryId: route.params.categoryId })}>
-                 <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
-          <Text style={hsStyles.sectionTitle}>Quick picks</Text>
-          <View style={styles.chipsRow}>
-            {QUICK_REASONS.map(chip => (
-              <TouchableOpacity
-                key={chip}
-                style={[styles.chip, reason === chip && styles.chipActive]}
-                onPress={() => setReason(chip)}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    reason === chip && styles.chipTextActive,
-                  ]}
-                >
-                  {chip}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={hsStyles.sectionTitle}>Describe in your words</Text>
-          <TextInput
-            style={styles.input}
-            multiline
-            maxLength={MAX_LEN}
-            placeholder="e.g. knee pain after fall, need physio for 2 weeks..."
-            placeholderTextColor={HS_COLORS.textMuted}
-            value={reason}
-            onChangeText={setReason}
-            textAlignVertical="top"
-          />
-          <Text style={styles.counter}>
-            {reason.length}/{MAX_LEN}
-          </Text>
-          <View style={styles.uploadContainer}>
-            <Text style={hsStyles.sectionTitle}>
-              Medical Reports
-            </Text>
-
-            <TouchableOpacity
-              style={styles.uploadButton}
-              onPress={openDocumentPicker}
-            >
-              <Text style={styles.uploadButtonText}>
-                + Add Images or PDF
-              </Text>
-            </TouchableOpacity>
-
-            {attachments.length > 0 && (
-              <View style={styles.fileList}>
-                {attachments.map((file, index) => (
-                  <View key={index} style={styles.fileItem}>
+              <Text style={hsStyles.sectionTitle}>Quick picks</Text>
+              <View style={styles.chipsRow}>
+                {QUICK_REASONS.map(chip => (
+                  <TouchableOpacity
+                    key={chip}
+                    style={[styles.chip, reason === chip && styles.chipActive]}
+                    onPress={() => setReason(chip)}
+                  >
                     <Text
-                      numberOfLines={1}
-                      style={styles.fileName}
+                      style={[
+                        styles.chipText,
+                        reason === chip && styles.chipTextActive,
+                      ]}
                     >
-                      {file.name}
+                      {chip}
                     </Text>
-
-                    <TouchableOpacity
-                      onPress={() => removeAttachment(index)}
-                    >
-                      <Text style={styles.removeText}>
-                        Remove
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
-            )}
-          </View>
-        </ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[hsStyles.primaryBtn, !reason.trim() && styles.disabled]}
-            disabled={!reason.trim()}
-            onPress={handleNext}
-          >
-            <Text style={hsStyles.primaryBtnText}>Continue</Text>
-          </TouchableOpacity>
-        </View>
+              <Text style={hsStyles.sectionTitle}>Describe in your words</Text>
+              <TextInput
+                style={styles.input}
+                multiline
+                maxLength={MAX_LEN}
+                placeholder="e.g. knee pain after fall, need physio for 2 weeks..."
+                placeholderTextColor={HS_COLORS.textMuted}
+                value={reason}
+                onChangeText={setReason}
+                textAlignVertical="top"
+              />
+              <Text style={styles.counter}>
+                {reason.length}/{MAX_LEN}
+              </Text>
+              <View style={styles.uploadContainer}>
+                <Text style={hsStyles.sectionTitle}>
+                  Medical Reports
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.uploadButton}
+                  onPress={openDocumentPicker}
+                >
+                  <Text style={styles.uploadButtonText}>
+                    + Add Images or PDF
+                  </Text>
+                </TouchableOpacity>
+
+                {attachments.length > 0 && (
+                  <View style={styles.fileList}>
+                    {attachments.map((file, index) => (
+                      <View key={index} style={styles.fileItem}>
+                        <Text
+                          numberOfLines={1}
+                          style={styles.fileName}
+                        >
+                          {file.name}
+                        </Text>
+
+                        <TouchableOpacity
+                          onPress={() => removeAttachment(index)}
+                        >
+                          <Text style={styles.removeText}>
+                            Remove
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+
+            <View style={styles.footer}>
+              <TouchableOpacity
+                style={[hsStyles.primaryBtn, !reason.trim() && styles.disabled]}
+                disabled={!reason.trim()}
+                onPress={handleNext}
+              >
+                <Text style={hsStyles.primaryBtnText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  centerContent: { justifyContent: 'center', alignItems: 'center' },
+  loadingText: {
+    fontSize: moderateScale(14),
+    color: HS_COLORS.text,
+    marginTop: SPACING.md,
+  },
   scroll: {
     padding: SPACING.md,
     paddingBottom: SPACING.xl,

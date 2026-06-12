@@ -24,7 +24,7 @@ import { HS_COLORS, hsStyles } from '../homeServiceTheme';
 import { SPACING, moderateScale, LAYOUT, SAFE_AREA } from '../../../utils/responsive';
 import { useSelector } from 'react-redux';
 
-type Params = { providerId: string; role?: string; categoryId?: string };
+type Params = { providerId: string; role?: string; categoryId?: string,provider?: any };
 type NavList = {
   HomeServiceSlotSelection: Params;
   HomeServiceReason: Params & { date: string; time: string };
@@ -126,7 +126,7 @@ const HomeServiceSlotSelection: React.FC = () => {
     if (!selectedTime) return;
     navigation.navigate('HomeServiceReason', {
       providerId,
-      categoryId,
+      provider,
       date: selectedDate,
       time: selectedTime,
     });

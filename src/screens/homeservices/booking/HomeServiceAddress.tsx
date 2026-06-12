@@ -12,10 +12,11 @@ import {
   Platform,
   Alert,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { getProviderDetailsById } from '../../../services/homeCareService';
+import { getAddressById } from '../../../services/homeCareService';
 import { AuthPost, ENDPOINTS } from '../../../services';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
@@ -35,6 +36,7 @@ export type AddressFormData = {
 
 type Params = {
   providerId: string;
+  provider: any;
   categoryId: string;
   date: string;
   time: string;
@@ -54,48 +56,53 @@ const HomeServiceAddress: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const user: any = useSelector((state: any) => state.currentUser);
   const route = useRoute<Route>();
-  const [provider, setProvider] = useState<any>(null);
+  const [provider, setProvider] = useState<any>(route.params.provider);
 
   const [form, setForm] = useState<AddressFormData>({ building: '', street: '', pincode: '', cityState: '' });
   const [useSaved, setUseSaved] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  React.useEffect(() => {
-    const fetchProvider = async () => {
-      const res = await getProviderDetailsById(route.params.providerId);
-      if (res.provider) setProvider(res.provider);
-    };
-    fetchProvider();
-  }, [route.params.providerId]);
 
   React.useEffect(() => {
     const fetchAddresses = async () => {
       try {
-        const token = await AsyncStorage.getItem('authToken');
-        const res: any = await AuthPost(ENDPOINTS.GET_ADDRESSES, { userId: user?.userId }, token);
-        if (res?.data && Array.isArray(res.data)) {
+        const res: any = await getAddressById(user.userId);
+
+        if (res?.status === 'success' && Array.isArray(res.data)) {
           setAddresses(res.data);
+
           if (res.data.length > 0) {
             const first = res.data[0];
+
             setForm({
               building: first.address || '',
               floorFlat: '',
               street: first.address || '',
               landmark: '',
               pincode: first.pincode || '',
-              cityState: first.city && first.state ? `${first.city}, ${first.state}` : (first.city || first.state || ''),
+              cityState:
+                first.city && first.state
+                  ? `${first.city}, ${first.state}`
+                  : first.city || first.state || '',
             });
+
             setUseSaved(true);
             setSelectedAddressId(first.addressId);
           }
         }
-      } catch (e) {
-        console.log(e);
+      } catch (err) {
+        console.log('[HomeServiceAddress] Fetch addresses error:', err);
+      } finally {
+        setLoadingAddresses(false);
       }
     };
-    fetchAddresses();
+    if (user?.userId) {
+      fetchAddresses();
+    }
   }, [user?.userId]);
 
   const update = (key: keyof AddressFormData, value: string) => {
@@ -136,6 +143,7 @@ const HomeServiceAddress: React.FC = () => {
   const handleConfirm = async () => {
     if (!validate()) return;
 
+    setSubmitting(true);
     let currentAddressId = selectedAddressId;
     if (!useSaved) {
       try {
@@ -152,13 +160,14 @@ const HomeServiceAddress: React.FC = () => {
         };
         const res: any = await AuthPost(ENDPOINTS.ADD_ADDRESS, payload, token);
         if (res?.status === 200 && res?.data?.addressId) {
-           currentAddressId = res.data.addressId;
+          currentAddressId = res.data.addressId;
         }
       } catch (e) {
         console.log("Failed to add address", e);
       }
     }
 
+    setSubmitting(false);
     navigation.navigate('HomeServiceReviewPay', {
       ...route.params,
       formData: { ...form, patientAddressId: currentAddressId || '' },
@@ -192,7 +201,7 @@ const HomeServiceAddress: React.FC = () => {
                 </View>
               )}
               <TouchableOpacity style={{ width: '100%', alignItems: 'flex-end', marginTop: 8 }} onPress={() => navigation.navigate('ProviderDetails' as any, { providerId: route.params.providerId, categoryId: route.params.categoryId })}>
-                 <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
+                <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -209,20 +218,22 @@ const HomeServiceAddress: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
-          {addresses.length > 0 && (
+          {loadingAddresses ? (
+            <ActivityIndicator size="small" color={HS_COLORS.primary} style={{ marginVertical: SPACING.md }} />
+          ) : addresses.length > 0 ? (
             <View style={{ marginBottom: SPACING.md }}>
-              <Text style={[hsStyles.sectionTitle, { marginBottom: SPACING.xs }]}>Saved addresses</Text>
+              <Text style={[hsStyles.sectionTitle, { marginBottom: SPACING.sm }]}>Saved addresses</Text>
               {addresses.map(addr => (
                 <TouchableOpacity
                   key={addr.addressId}
                   style={[styles.savedCard, selectedAddressId === addr.addressId && styles.savedCardActive]}
                   onPress={() => {
                     setForm({
-                      building: addr.address,
+                      building: addr.address || '',
                       floorFlat: '',
-                      street: addr.address,
+                      street: addr.address || '',
                       landmark: '',
-                      pincode: addr.pincode,
+                      pincode: addr.pincode || '',
                       cityState: addr.city && addr.state ? `${addr.city}, ${addr.state}` : (addr.city || addr.state || ''),
                     });
                     setUseSaved(true);
@@ -231,14 +242,14 @@ const HomeServiceAddress: React.FC = () => {
                 >
                   <Text style={styles.savedLabel}>{addr.type || 'Home'}</Text>
                   <Text style={hsStyles.muted} numberOfLines={2}>
-                    {addr.address}, {addr.city} - {addr.pincode}
+                    {addr.address}, {addr.city} {addr.pincode}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          )}
+          ) : null}
 
-          <Text style={hsStyles.sectionTitle}>Address details</Text>
+          <Text style={[hsStyles.sectionTitle, { marginTop: SPACING.xs }]}>Address details</Text>
 
           <Field label="Building / Apartment *" value={form.building} onChange={v => update('building', v)} />
           <Field label="Floor & Flat" value={form.floorFlat || ''} onChange={v => update('floorFlat', v)} optional />
@@ -250,8 +261,16 @@ const HomeServiceAddress: React.FC = () => {
         </ScrollView>
 
         <View style={styles.footer}>
-          <TouchableOpacity style={hsStyles.primaryBtn} onPress={handleConfirm}>
-            <Text style={hsStyles.primaryBtnText}>Review & pay</Text>
+          <TouchableOpacity
+            style={[hsStyles.primaryBtn, submitting && { opacity: 0.8 }]}
+            onPress={handleConfirm}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={hsStyles.primaryBtnText}>Review & pay</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

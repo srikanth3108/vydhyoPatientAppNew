@@ -26,6 +26,7 @@ type Params = {
   date: string;
   time: string;
   reason: string;
+  provider:any
 };
 
 type NavList = {
@@ -42,15 +43,7 @@ const HomeServiceSelectPatient: React.FC = () => {
   const insets = useSafeAreaInsets();
   const currentUser = useSelector((state: any) => state.currentUser);
 
-  const [provider, setProvider] = useState<any>(null);
-
-  React.useEffect(() => {
-    const fetchProvider = async () => {
-      const res = await getProviderDetailsById(route.params.providerId);
-      if (res.provider) setProvider(res.provider);
-    };
-    fetchProvider();
-  }, [route.params.providerId]);
+  const [provider, setProvider] = useState<any>(route.params.provider);
 
   const [forSelf, setForSelf] = useState(true);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
@@ -66,7 +59,8 @@ const HomeServiceSelectPatient: React.FC = () => {
       }
       setLoading(false);
     };
-    fetchFamily();
+    fetchFamily(
+    );
   }, []);
 
   // Modal State
@@ -175,6 +169,12 @@ const HomeServiceSelectPatient: React.FC = () => {
   return (
     <SafeAreaView style={hsStyles.screen}>
       <StatusBar barStyle="dark-content" />
+
+      {loading ? (
+        <View style={[hsStyles.screen, styles.centered]}>
+          <Text>Loading...</Text>
+        </View>
+      ) : (
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {provider?.fullName && (
@@ -297,6 +297,7 @@ const HomeServiceSelectPatient: React.FC = () => {
           </>
         )}
       </ScrollView>
+      )}
 
       {/* Add Family Member Modal */}
       <Modal
@@ -470,6 +471,8 @@ const HomeServiceSelectPatient: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  centerContent: { justifyContent: 'center', alignItems: 'center' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   summaryCard: {
     backgroundColor: HS_COLORS.card,
     borderRadius: LAYOUT.borderRadius.lg,

@@ -84,6 +84,36 @@ export type RootStackParamList = {
       cityState: string;
     };
   };
+  HomeServicePaymentGateway: {
+    payment_session_id: string;
+    order_id: string;
+    categoryId: string;
+    providerId: string;
+    date: string;
+    time: string;
+    patient: object;
+    address: object;
+    reason: string;
+    appointmentDetails: {
+      appointmentId: string;
+      platformFee: number;
+      amount?: number;
+    };
+  };
+  HomeServicePaymentFailed: {
+    appointmentDetails: object;
+    categoryId: string;
+    providerId: string;
+    date: string;
+    time: string;
+    patient: object;
+    address: object;
+    reason: string;
+    paymentSessionId: string;
+    orderId: string;
+    errorType: string;
+    errorMessage: string;
+  };
   Physiotherapist: { serviceType: string };
   NursingCare: undefined;
   FindDoctor: { specialty: string };
@@ -281,6 +311,8 @@ DateSelection: {
     address?: any;
     reason?: string;
     appointmentDetails?: any;
+    paymentStatus?: 'success' | 'pending' | 'failed';
+    appointmentId?: string;
   };
   HomeServiceCancel: { appointment: UpcomingAppointment };
   HomeServiceCancelConfirmation: {

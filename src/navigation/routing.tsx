@@ -74,6 +74,8 @@ import HomeServiceSlotSelection from '../screens/homeservices/booking/HomeServic
 import HomeServiceReason from '../screens/homeservices/booking/HomeServiceReason';
 import HomeServiceSelectPatient from '../screens/homeservices/booking/HomeServiceSelectPatient';
 import HomeServiceReviewPay from '../screens/homeservices/booking/HomeServiceReviewPay';
+import HomeServicePaymentGateway from '../screens/homeservices/booking/HomeServicePaymentGateway';
+import HomeServicePaymentFailed from '../screens/homeservices/booking/HomeServicePaymentFailed';
 import Physiotherapist from '../screens/homeservices/legacy/Physiotherapist';
 import NursingCare from '../screens/homeservices/legacy/NursingCare';
 import ReasonForConsultationScreen from '../screens/homeservices/legacy/ReasonForConsultation';
@@ -318,6 +320,8 @@ export default function Routing() {
         <Stack.Screen name="HomeServiceSelectPatient" component={HomeServiceSelectPatient} options={{ title: t('bookFor'), headerTitleAlign: 'center' }} />
         <Stack.Screen name="HomeServiceAddress" component={HomeServiceAddress} options={{ title: t('homeAddress'), headerTitleAlign: 'center' }} />
         <Stack.Screen name="HomeServiceReviewPay" component={HomeServiceReviewPay} options={{ title: t('reviewPay'), headerTitleAlign: 'center' }} />
+        <Stack.Screen name="HomeServicePaymentGateway" component={HomeServicePaymentGateway} options={{ headerShown: false }} />
+        <Stack.Screen name="HomeServicePaymentFailed" component={HomeServicePaymentFailed} options={{ headerShown: false }} />
         <Stack.Screen name="Physiotherapist" component={Physiotherapist} options={{ title: t('Physiotherapist'), headerTitleAlign: 'center' }} />
         <Stack.Screen name="NursingCare" component={NursingCare} options={{ headerShown: false }} />
         <Stack.Screen name="ReferAndEarn" component={ReferAndEarn} options={{ headerShown: false }} />
