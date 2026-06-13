@@ -17,9 +17,6 @@ import moment from 'moment';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../navigation/navigationTypes';
-import {
-  getCategoryById,
-} from '../../../data/mockHomeServices';
 import { AddressFormData } from './HomeServiceAddress';
 import { HS_COLORS, hsStyles } from '../homeServiceTheme';
 import { SPACING, moderateScale, LAYOUT, verticalScale } from '../../../utils/responsive';
@@ -65,7 +62,7 @@ const HomeServiceReviewPay: React.FC = () => {
   const user: any = useSelector((state: any) => state.currentUser);
   const userWallet = useSelector((s: any) => s.userWallet);
 
-  const category = getCategoryById(params.categoryId);
+  // const category = getCategoryById(params.categoryId);
   const { patient, formData, reason, date, time } = params;
 
   const [providerDetails, setProviderDetails] = useState<any>(null);
@@ -511,7 +508,7 @@ const HomeServiceReviewPay: React.FC = () => {
           patientName: `${patient.firstname} ${patient.lastname || ''}`.trim(),
           doctorName: providerDetails?.fullName || '',
           appointmentType: 'Home Visit',
-          appointmentDepartment: category?.name || 'Home Service',
+          appointmentDepartment: 'Home Service',
           appointmentDate: date,
           appointmentTime: time,
           homeAddress: formData.street,
@@ -581,7 +578,7 @@ const HomeServiceReviewPay: React.FC = () => {
         Alert.alert('Error', errorMessage);
         Toast.show({
           type: 'error',
-          text1: 'Appointment Error',
+          text1: 'Appointment Erdfffror',
           text2: errorMessage,
           position: 'top',
           visibilityTime: 4000,
@@ -653,9 +650,9 @@ const HomeServiceReviewPay: React.FC = () => {
             <Text style={styles.bold}>{providerDetails?.fullName || ''}</Text>
             <Text style={hsStyles.muted}>{providerDetails?.profession || ''}</Text>
             <View style={styles.pill}>
-              <Text style={styles.pillText}>
+              {/* <Text style={styles.pillText}>
                 {category?.emoji} {category?.name} · Home visit
-              </Text>
+              </Text> */}
             </View>
           </Section>
 

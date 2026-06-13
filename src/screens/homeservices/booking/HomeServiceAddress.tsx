@@ -32,6 +32,8 @@ export type AddressFormData = {
   pincode: string;
   cityState: string;
   patientAddressId?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 type Params = {
@@ -58,7 +60,7 @@ const HomeServiceAddress: React.FC = () => {
   const route = useRoute<Route>();
   const [provider, setProvider] = useState<any>(route.params.provider);
 
-  const [form, setForm] = useState<AddressFormData>({ building: '', street: '', pincode: '', cityState: '' });
+  const [form, setForm] = useState<AddressFormData>({ building: '', street: '', pincode: '', cityState: '', latitude: 0, longitude: 0 });
   const [useSaved, setUseSaved] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -89,6 +91,8 @@ const HomeServiceAddress: React.FC = () => {
                 first.city && first.state
                   ? `${first.city}, ${first.state}`
                   : first.city || first.state || '',
+              latitude: first.latitude || 0,
+              longitude: first.longitude || 0,
             });
 
             setUseSaved(true);
@@ -126,6 +130,8 @@ const HomeServiceAddress: React.FC = () => {
       landmark: form.landmark || '',
       pincode: loc.pincode || '',
       cityState: loc.city && loc.state ? `${loc.city}, ${loc.state}` : (loc.city || loc.state || ''),
+      latitude: parseFloat(loc.latitude) || 0,
+      longitude: parseFloat(loc.longitude) || 0,
     });
     setUseSaved(false);
     setShowLocationModal(false);
@@ -162,8 +168,8 @@ const HomeServiceAddress: React.FC = () => {
           state: form.cityState.split(',')[1]?.trim() || form.cityState.split(',')[0]?.trim() || '',
           country: "India",
           pincode: form.pincode,
-          latitude: 0,
-          longitude: 0,
+          latitude: form.latitude || 0,
+          longitude: form.longitude || 0,
         };
         const res: any = await AuthPost(ENDPOINTS.ADD_ADDRESS, payload, token);
         if (res?.status === 200 && res?.data?.addressId) {
@@ -243,6 +249,8 @@ const HomeServiceAddress: React.FC = () => {
                       landmark: '',
                       pincode: addr.pincode || '',
                       cityState: addr.city && addr.state ? `${addr.city}, ${addr.state}` : (addr.city || addr.state || ''),
+                      latitude: addr.latitude || 0,
+                      longitude: addr.longitude || 0,
                     });
                     setUseSaved(true);
                     setSelectedAddressId(addr.addressId);
@@ -289,6 +297,13 @@ const HomeServiceAddress: React.FC = () => {
               <Field label="Landmark" value={form.landmark || ''} onChange={v => update('landmark', v)} optional />
               <Field label="Pincode *" value={form.pincode} onChange={v => update('pincode', v)} keyboard="number-pad" maxLength={6} />
               <Field label="City & State *" value={form.cityState} onChange={v => update('cityState', v)} />
+              {!!form.latitude && !!form.longitude ? (
+                <View style={{ marginTop: SPACING.sm, padding: SPACING.md, backgroundColor: '#EFF6FF', borderRadius: LAYOUT.borderRadius.md, borderWidth: 1, borderColor: '#BFDBFE' }}>
+                  <Text style={{ fontSize: moderateScale(13), color: '#1E3A8A', fontWeight: '700', marginBottom: 4 }}>📍 GPS Coordinates Selected</Text>
+                  <Text style={{ fontSize: moderateScale(12), color: '#3B82F6' }}>Latitude: {form.latitude.toFixed(6)}</Text>
+                  <Text style={{ fontSize: moderateScale(12), color: '#3B82F6' }}>Longitude: {form.longitude.toFixed(6)}</Text>
+                </View>
+              ) : null}
             </View>
           )}
 

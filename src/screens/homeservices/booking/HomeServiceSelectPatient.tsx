@@ -8,15 +8,15 @@ import {
   StatusBar,
   ScrollView,
   Platform,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getFamilyMembers, addFamilyMember, FamilyMember, getProviderDetailsById } from '../../../services/homeCareService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
+import { AuthFetch, authDelete, ENDPOINTS } from '../../../services';
 import { HS_COLORS, hsStyles } from '../homeServiceTheme';
 import { SPACING, moderateScale, LAYOUT, SAFE_AREA } from '../../../utils/responsive';
 
@@ -38,7 +38,7 @@ type Route = RouteProp<NavList, 'HomeServiceSelectPatient'>;
 type Nav = StackNavigationProp<NavList, 'HomeServiceSelectPatient'>;
 
 const HomeServiceSelectPatient: React.FC = () => {
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<any>();
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
   const currentUser = useSelector((state: any) => state.currentUser);
@@ -46,88 +46,103 @@ const HomeServiceSelectPatient: React.FC = () => {
   const [provider, setProvider] = useState<any>(route.params.provider);
 
   const [forSelf, setForSelf] = useState(true);
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
-  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+  const [familyMembers, setFamilyMembers] = useState<any[]>([]);
+  const [selectedMember, setSelectedMember] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    const fetchFamily = async () => {
-      setLoading(true);
-      const res = await getFamilyMembers();
-      if (res.familyMembers) {
-        setFamilyMembers(res.familyMembers);
+  const fetchFamily = React.useCallback(async () => {
+    try {
+      if (familyMembers.length === 0) {
+        setLoading(true);
       }
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) return;
+
+      const response = await AuthFetch(
+        `${ENDPOINTS.GET_ALL_FAMILY_MEMBERS(currentUser.userId)}&t=${Date.now()}`,
+        token
+      );
+
+      if (response?.status === 'success') {
+        const membersList = response?.data?.data || [];
+        const family = membersList.filter(
+          (user: any) => (user.relationship || '').toLowerCase() !== 'self'
+        );
+        setFamilyMembers(family);
+      }
+    } catch (e) {
+      console.error('Failed to fetch family members', e);
+    } finally {
       setLoading(false);
-    };
-    fetchFamily(
-    );
-  }, []);
+    }
+  }, [currentUser.userId, familyMembers.length]);
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Form Fields State
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [relationship, setRelationship] = useState('Father');
-  const [mobile, setMobile] = useState('');
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('Male');
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchFamily();
+    }, [fetchFamily])
+  );
 
   const canProceed = forSelf || selectedMember !== null;
 
-  const validateForm = () => {
-    const tempErrors: { [key: string]: string } = {};
-    if (!firstName.trim()) {
-      tempErrors.firstName = 'First name is required';
-    }
-    if (!mobile.trim()) {
-      tempErrors.mobile = 'Mobile number is required';
-    } else if (!/^\d{10}$/.test(mobile.replace(/\D/g, ''))) {
-      tempErrors.mobile = 'Enter a valid 10-digit mobile number';
-    }
-    if (!age.trim()) {
-      tempErrors.age = 'Age is required';
-    } else {
-      const parsedAge = parseInt(age);
-      if (isNaN(parsedAge) || parsedAge <= 0 || parsedAge > 120) {
-        tempErrors.age = 'Enter a valid age (1-120)';
-      }
-    }
-    setErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
+  const handleEditMember = (member: any) => {
+    navigation.navigate('AddFamily', { from: 'edit', member });
   };
 
-  const handleAddMemberSubmit = async () => {
-    if (!validateForm()) return;
+  const handleDeleteMember = (member: any) => {
+    Alert.alert(
+      'Delete Member',
+      'Are you sure you want to delete this family member?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const token = await AsyncStorage.getItem('authToken');
+              if (!token) return;
 
-    try {
-      await addFamilyMember({
-        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
-        relation: relationship,
-        gender: gender,
-        age: parseInt(age),
-        mobile: mobile.trim()
-      });
-      
-      const res = await getFamilyMembers();
-      if (res.familyMembers) {
-        setFamilyMembers(res.familyMembers);
-      }
+              const memberUserId = member.userId;
+              const response = await authDelete(
+                ENDPOINTS.DELETE_FAMILY_MEMBER(memberUserId),
+                { userId: currentUser.userId },
+                token
+              );
 
-      // Reset Form Fields
-      setFirstName('');
-      setLastName('');
-      setRelationship('Father');
-      setMobile('');
-      setAge('');
-      setGender('Male');
-      setErrors({});
-      setIsModalOpen(false);
-    } catch (e) {
-      console.error('Failed to add member', e);
-    }
+              if (response?.status === 'success') {
+                Toast.show({
+                  type: 'success',
+                  text1: 'Family member deleted successfully',
+                  position: 'top',
+                });
+                if (selectedMember?._id === member._id || selectedMember?.familyMemberId === member.familyMemberId) {
+                  setSelectedMember(null);
+                }
+                fetchFamily();
+              } else {
+                Toast.show({
+                  type: 'error',
+                  text1: 'Failed to delete family member',
+                  text2: response?.message?.message || 'Please cancel existing appointments first.',
+                  position: 'top',
+                });
+              }
+            } catch (err) {
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to delete family member',
+                position: 'top',
+              });
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const buildPatient = () => {
@@ -143,20 +158,22 @@ const HomeServiceSelectPatient: React.FC = () => {
         gender: currentUser?.gender || 'Male',
       };
     }
-    const names = selectedMember!.name.split(' ');
-    const firstname = names[0];
-    const lastname = names.slice(1).join(' ');
     return {
       userId: selectedMember!.userId || '',
       familyMemberId: selectedMember!.familyMemberId || selectedMember!._id,
-      firstname,
-      lastname,
-      name: selectedMember!.name,
-      relationship: selectedMember!.relation,
+      firstname: selectedMember!.firstname || '',
+      lastname: selectedMember!.lastname || '',
+      name: `${selectedMember!.firstname || ''} ${selectedMember!.lastname || ''}`.trim() || selectedMember!.name,
+      relationship: selectedMember!.relationship || selectedMember!.relation,
       mobile: selectedMember!.mobile,
       age: selectedMember!.age,
       gender: selectedMember!.gender,
     };
+  };
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'M';
+    return name.charAt(0).toUpperCase();
   };
 
   const handleContinue = () => {
@@ -225,16 +242,18 @@ const HomeServiceSelectPatient: React.FC = () => {
 
         {forSelf ? (
           <View style={[hsStyles.card, styles.memberCard]}>
-            <View
-              style={[styles.initials, { backgroundColor: '#D1FAE5' }]}
-            >
-              <Text style={[styles.initialsText, { color: '#047857' }]}>ME</Text>
-            </View>
-            <View>
-              <Text style={styles.memberName}>
-                {currentUser?.firstname || 'You'} {currentUser?.lastname || ''}
-              </Text>
-              <Text style={hsStyles.muted}>Self · {currentUser?.mobile || '+91 98765 43210'}</Text>
+            <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center' }}>
+              <View
+                style={[styles.initials, { backgroundColor: '#D1FAE5' }]}
+              >
+                <Text style={[styles.initialsText, { color: '#047857' }]}>ME</Text>
+              </View>
+              <View>
+                <Text style={styles.memberName}>
+                  {currentUser?.firstname || 'You'} {currentUser?.lastname || ''}
+                </Text>
+                <Text style={hsStyles.muted}>Self · {currentUser?.mobile || '+91 98765 43210'}</Text>
+              </View>
             </View>
           </View>
         ) : (
@@ -260,38 +279,53 @@ const HomeServiceSelectPatient: React.FC = () => {
                     (selectedMember?.familyMemberId === member.familyMemberId || selectedMember?._id === member._id) && styles.memberSelected,
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.initials,
-                      { backgroundColor: randomColor.bg },
-                    ]}
-                  >
-                    <Text style={[styles.initialsText, { color: randomColor.text }]}>
-                      {(member.name || 'M')[0].toUpperCase()}
-                    </Text>
+                  <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center' }}>
+                    <View
+                      style={[
+                        styles.initials,
+                        { backgroundColor: randomColor.bg },
+                      ]}
+                    >
+                      <Text style={[styles.initialsText, { color: randomColor.text }]}>
+                        {getInitials(member.firstname || member.name)}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.memberName}>
+                        {member.firstname} {member.lastname}
+                      </Text>
+                      <Text style={hsStyles.muted}>
+                        {member.relationship || member.relation}
+                      </Text>
+                      <Text style={hsStyles.muted}>
+                        {member.mobile}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.radio,
+                        (selectedMember?.familyMemberId === member.familyMemberId || selectedMember?._id === member._id) && styles.radioOn,
+                      ]}
+                    >
+                      {(selectedMember?.familyMemberId === member.familyMemberId || selectedMember?._id === member._id) && (
+                        <View style={styles.radioInner} />
+                      )}
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.memberName}>
-                      {member.name}
-                    </Text>
-                    <Text style={hsStyles.muted}>
-                      {member.relation} · {member.mobile}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.radio,
-                      (selectedMember?.familyMemberId === member.familyMemberId || selectedMember?._id === member._id) && styles.radioOn,
-                    ]}
-                  >
-                    {(selectedMember?.familyMemberId === member.familyMemberId || selectedMember?._id === member._id) && (
-                      <View style={styles.radioInner} />
-                    )}
+
+                  {/* Buttons Row */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%', marginTop: SPACING.sm }}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => handleEditMember(member)}>
+                      <Text style={styles.editBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteMember(member)}>
+                      <Text style={styles.deleteBtnText}>Delete</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </TouchableOpacity>
             )})}
-            <TouchableOpacity style={styles.addFamily} onPress={() => setIsModalOpen(true)}>
+            <TouchableOpacity style={styles.addFamily} onPress={() => navigation.navigate('AddFamily', { from: 'appointment' })}>
               <Text style={styles.addFamilyText}>+ Add family member</Text>
             </TouchableOpacity>
           </>
@@ -299,153 +333,7 @@ const HomeServiceSelectPatient: React.FC = () => {
       </ScrollView>
       )}
 
-      {/* Add Family Member Modal */}
-      <Modal
-        visible={isModalOpen}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsModalOpen(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Family Member</Text>
-              <TouchableOpacity onPress={() => setIsModalOpen(false)} style={styles.closeBtn}>
-                <Text style={styles.closeBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.modalScroll}
-            >
-              {/* First Name Input */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>First Name *</Text>
-                <TextInput
-                  style={[styles.textInput, !!errors.firstName && styles.textInputError]}
-                  placeholder="Enter first name"
-                  placeholderTextColor="#94A3B8"
-                  value={firstName}
-                  onChangeText={(val) => {
-                    setFirstName(val);
-                    if (errors.firstName) setErrors({ ...errors, firstName: '' });
-                  }}
-                />
-                {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
-              </View>
-
-              {/* Last Name Input */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Last Name</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter last name"
-                  placeholderTextColor="#94A3B8"
-                  value={lastName}
-                  onChangeText={setLastName}
-                />
-              </View>
-
-              {/* Relation Chips */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Relationship *</Text>
-                <View style={styles.chipsContainer}>
-                  {['Father', 'Mother', 'Spouse', 'Child', 'Sibling', 'Other'].map((rel) => (
-                    <TouchableOpacity
-                      key={rel}
-                      style={[
-                        styles.chip,
-                        relationship === rel && styles.chipActive,
-                      ]}
-                      onPress={() => setRelationship(rel)}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          relationship === rel && styles.chipTextActive,
-                        ]}
-                      >
-                        {rel}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Mobile Input */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Mobile Number *</Text>
-                <TextInput
-                  style={[styles.textInput, !!errors.mobile && styles.textInputError]}
-                  placeholder="Enter 10-digit number"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="numeric"
-                  maxLength={10}
-                  value={mobile}
-                  onChangeText={(val) => {
-                    setMobile(val);
-                    if (errors.mobile) setErrors({ ...errors, mobile: '' });
-                  }}
-                />
-                {errors.mobile && <Text style={styles.errorText}>{errors.mobile}</Text>}
-              </View>
-
-              {/* Age Input */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Age *</Text>
-                <TextInput
-                  style={[styles.textInput, !!errors.age && styles.textInputError]}
-                    placeholder="Enter age"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="numeric"
-                  maxLength={3}
-                  value={age}
-                  onChangeText={(val) => {
-                    setAge(val);
-                    if (errors.age) setErrors({ ...errors, age: '' });
-                  }}
-                />
-                {errors.age && <Text style={styles.errorText}>{errors.age}</Text>}
-              </View>
-
-              {/* Gender Chips */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Gender *</Text>
-                <View style={styles.chipsContainer}>
-                  {['Male', 'Female', 'Other'].map((g) => (
-                    <TouchableOpacity
-                      key={g}
-                      style={[
-                        styles.chip,
-                        gender === g && styles.chipActive,
-                      ]}
-                      onPress={() => setGender(g)}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          gender === g && styles.chipTextActive,
-                        ]}
-                      >
-                        {g}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Submit Button */}
-              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleAddMemberSubmit}>
-                <Text style={styles.modalSubmitBtnText}>Add Family Member</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
       <View
         style={[
@@ -504,8 +392,8 @@ const styles = StyleSheet.create({
   toggleText: { fontSize: moderateScale(14), fontWeight: '600', color: HS_COLORS.textMuted },
   toggleTextActive: { color: '#FFF' },
   memberCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     marginBottom: SPACING.sm,
   },
   memberSelected: {
@@ -545,119 +433,28 @@ const styles = StyleSheet.create({
   addFamily: { alignItems: 'center', padding: SPACING.md },
   addFamilyText: { color: HS_COLORS.primaryLight, fontWeight: '600' },
   disabled: { opacity: 0.5, backgroundColor: '#94A3B8' },
-
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)', // Sleek dark blur background
-    justifyContent: 'flex-end',
+  editBtn: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 8,
   },
-  modalContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: LAYOUT.borderRadius.xl,
-    borderTopRightRadius: LAYOUT.borderRadius.xl,
-    maxHeight: '90%',
-    minHeight: '60%',
-    ...LAYOUT.shadow.lg,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  modalTitle: {
-    fontSize: moderateScale(17),
-    fontWeight: '700',
-    color: HS_COLORS.text,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeBtnText: {
-    fontSize: moderateScale(13),
-    color: '#64748B',
-    fontWeight: '700',
-  },
-  modalScroll: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.xl * 2,
-  },
-  inputContainer: {
-    marginBottom: SPACING.md,
-  },
-  inputLabel: {
-    fontSize: moderateScale(13),
+  editBtnText: {
+    color: '#FFF',
+    fontSize: 12,
     fontWeight: '600',
-    color: HS_COLORS.text,
-    marginBottom: SPACING.xs,
   },
-  textInput: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: LAYOUT.borderRadius.md,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: Platform.OS === 'ios' ? SPACING.sm : SPACING.xs,
-    fontSize: moderateScale(14),
-    color: HS_COLORS.text,
+  deleteBtn: {
+    backgroundColor: '#F44336',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
-  textInputError: {
-    borderColor: HS_COLORS.danger,
-    backgroundColor: '#FEF2F2',
-  },
-  errorText: {
-    fontSize: moderateScale(11),
-    color: HS_COLORS.danger,
-    marginTop: SPACING.xxs,
-    fontWeight: '500',
-  },
-  chipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
-    marginTop: SPACING.xxs,
-  },
-  chip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: LAYOUT.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-  },
-  chipActive: {
-    backgroundColor: HS_COLORS.primary,
-    borderColor: HS_COLORS.primary,
-  },
-  chipText: {
-    fontSize: moderateScale(12),
+  deleteBtnText: {
+    color: '#FFF',
+    fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
-  },
-  modalSubmitBtn: {
-    backgroundColor: HS_COLORS.primary,
-    borderRadius: LAYOUT.borderRadius.md,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACING.md,
-    ...LAYOUT.shadow.md,
-  },
-  modalSubmitBtnText: {
-    color: '#FFFFFF',
-    fontSize: moderateScale(14),
-    fontWeight: '700',
   },
 });
 

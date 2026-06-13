@@ -567,21 +567,15 @@ export const MOCK_FAMILY_MEMBERS: MockFamilyMember[] = [
   },
 ];
 
-export function getCategoryById(id: string): ServiceCategory | undefined {
-  return SERVICE_CATEGORIES.find(c => c.id === id);
-}
 
-export function getProvidersByCategory(categoryId: string): HomeProvider[] {
-  return HOME_PROVIDERS.filter(p => p.categoryId === categoryId);
-}
+
+
 
 export function getProviderById(id: string): HomeProvider | undefined {
   return HOME_PROVIDERS.find(p => p.id === id);
 }
 
-export function getOfferingsByProvider(providerId: string): HomeServiceOffering[] {
-  return HOME_SERVICE_OFFERINGS.filter(s => s.providerId === providerId);
-}
+
 
 export function getOfferingById(id: string): HomeServiceOffering | undefined {
   return HOME_SERVICE_OFFERINGS.find(s => s.id === id);
