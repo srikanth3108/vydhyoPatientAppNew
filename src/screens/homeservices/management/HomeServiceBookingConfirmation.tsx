@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
 import RNFS from 'react-native-fs';
 import {
-  getCategoryById,
+  // getCategoryById,
   getOfferingById,
   getProviderById,
 } from '../../../data/mockHomeServices';
@@ -173,14 +173,14 @@ const HomeServiceBookingConfirmation: React.FC = () => {
           };
         } else if (params.categoryId && params.providerId) {
           const provider = getProviderById(params.providerId);
-          const category = getCategoryById(params.categoryId);
+          // const category = getCategoryById(params.categoryId);
 
           details = {
             bookingId: params.orderID || `HS-${Math.floor(100000 + Math.random() * 900000)}`,
             providerName: provider?.name || 'Care Professional',
             businessName: provider?.businessName || 'Vydhyo Home Care',
-            categoryEmoji: category?.emoji || '🏠',
-            categoryName: category?.name || 'Home Visit',
+            // categoryEmoji: category?.emoji || '🏠',
+            // categoryName: category?.name || 'Home Visit',
             serviceName: 'Home Visit Consultation',
             duration: '1 Session',
             date: params.date || new Date().toISOString().split('T')[0],
