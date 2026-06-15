@@ -16,7 +16,6 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  getCategoryById,
   getProviderById,
 } from '../../../data/mockHomeServices';
 import {  DateSlots, SlotData, getProviderDetailsById, getProviderSlotsAvailability } from '../../../services/homeCareService';
@@ -41,7 +40,6 @@ const HomeServiceSlotSelection: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { providerId, categoryId, role } = route.params;
 
-  const category = categoryId ? getCategoryById(categoryId) : null;
   const [providerMock] = useState(getProviderById(providerId));
 
   const [selectedDate, setSelectedDate] = useState(moment().format('YYYY-MM-DD'));
@@ -283,7 +281,7 @@ const HomeServiceSlotSelection: React.FC = () => {
                     <Text style={styles.summaryName}>{providerMock?.providerName}</Text>
                   </View>
                   <View style={styles.categoryPill}>
-                    <Text style={styles.categoryPillText}>{category?.emoji || '🏠'} Home</Text>
+                    {/* <Text style={styles.categoryPillText}>{category?.emoji || '🏠'} Home</Text> */}
                   </View>
                 </View>
               )}

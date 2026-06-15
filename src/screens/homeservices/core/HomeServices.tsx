@@ -68,6 +68,7 @@ const HomeServices: React.FC = () => {
       setError(null);
       try {
         const result = await getHomeCareRoles();
+        console.log('Fetched roles:', result);
         if (result.error) {
           setError(result.error);
           setRoles([]);

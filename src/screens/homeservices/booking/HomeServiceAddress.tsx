@@ -183,6 +183,7 @@ const HomeServiceAddress: React.FC = () => {
     setSubmitting(false);
     navigation.navigate('HomeServiceReviewPay', {
       ...route.params,
+      patient: route.params.patient,
       formData: { ...form, patientAddressId: currentAddressId || '' },
     });
   };

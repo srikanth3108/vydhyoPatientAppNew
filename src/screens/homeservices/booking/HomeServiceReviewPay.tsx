@@ -68,6 +68,7 @@ const HomeServiceReviewPay: React.FC = () => {
   const [providerDetails, setProviderDetails] = useState<any>(null);
   const [initialLoading, setInitialLoading] = useState(true);
 
+
   useEffect(() => {
     const fetchProvider = async () => {
       const res = await getProviderDetailsById(params.providerId);
@@ -669,7 +670,7 @@ const HomeServiceReviewPay: React.FC = () => {
               label="Name"
               value={`${patient.firstname} ${patient.lastname || ''}`.trim()}
             />
-            <InfoRow label="For" value={patient.relationship || 'Self'} />
+            <InfoRow label="For" value={patient.relationship ? patient.relationship : 'Self'} />
             <InfoRow label="Phone" value={patient.mobile || '—'} />
           </Section>
 

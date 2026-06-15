@@ -164,7 +164,7 @@ const HomeServiceSelectPatient: React.FC = () => {
       firstname: selectedMember!.firstname || '',
       lastname: selectedMember!.lastname || '',
       name: `${selectedMember!.firstname || ''} ${selectedMember!.lastname || ''}`.trim() || selectedMember!.name,
-      relationship: selectedMember!.relationship || selectedMember!.relation,
+      relationship: selectedMember!.relationship || selectedMember!.relation || 'Family Member',
       mobile: selectedMember!.mobile,
       age: selectedMember!.age,
       gender: selectedMember!.gender,
@@ -177,9 +177,10 @@ const HomeServiceSelectPatient: React.FC = () => {
   };
 
   const handleContinue = () => {
+    const patientData = buildPatient();
     navigation.navigate('HomeServiceAddress', {
       ...route.params,
-      patient: buildPatient(),
+      patient: patientData,
     });
   };
 
