@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   SafeAreaView,
@@ -50,6 +50,8 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [paymentState, setPaymentState] = useState<any>(null);
+  const isVerifyingRef = useRef(false);
+  const isErrorHandledRef = useRef(false);
 
   useEffect(() => {
     initiateCashfreePayment();
@@ -175,6 +177,8 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
   };
 
   const handlePaymentVerification = async (verifiedOrderId: string) => {
+    if (isVerifyingRef.current) return;
+    isVerifyingRef.current = true;
     setProcessing(true);
     try {
       await PaymentStateManager.updatePaymentStatus(PaymentStatus.VERIFYING);
@@ -228,6 +232,8 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
           text2: verifyResult.error || 'Unable to verify payment',
         });
 
+        isVerifyingRef.current = false;
+
         // Navigate to payment failed screen
         setTimeout(() => {
           navigation.replace('HomeServicePaymentFailed', {
@@ -262,6 +268,8 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
         text2: error?.message || 'Failed to verify payment',
       });
 
+      isVerifyingRef.current = false;
+
       setTimeout(() => {
         navigation.replace('HomeServicePaymentFailed', {
           appointmentDetails,
@@ -284,6 +292,8 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
   };
 
   const handlePaymentError = async (error: any, errorOrderId: string) => {
+    if (isErrorHandledRef.current) return;
+    isErrorHandledRef.current = true;
     console.error('Payment gateway error:', error, errorOrderId);
     
     // Categorize error

@@ -61,6 +61,7 @@ const HomeServiceAddress: React.FC = () => {
   const [provider, setProvider] = useState<any>(route.params.provider);
 
   const [form, setForm] = useState<AddressFormData>({ building: '', street: '', pincode: '', cityState: '', latitude: 0, longitude: 0 });
+  const [errors, setErrors] = useState<Partial<Record<keyof AddressFormData, string>>>({});
   const [useSaved, setUseSaved] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -120,6 +121,7 @@ const HomeServiceAddress: React.FC = () => {
     setForm(prev => ({ ...prev, [key]: value }));
     setUseSaved(false);
     setSelectedAddressId(null);
+    setErrors(prev => ({ ...prev, [key]: undefined }));
   };
 
   const handleLocationSelected = (loc: PatientLocation) => {
@@ -135,19 +137,47 @@ const HomeServiceAddress: React.FC = () => {
     });
     setUseSaved(false);
     setShowLocationModal(false);
+    setErrors({});
   };
 
   const validate = (): boolean => {
-    if (!form.building.trim() || !form.street.trim() || !form.pincode.trim()) {
-      Alert.alert('Missing details', 'Building, street, and pincode are required.');
-      return false;
+    const newErrors: Partial<Record<keyof AddressFormData, string>> = {};
+
+    if (!form.building.trim()) {
+      newErrors.building = 'Building or Apartment name is required.';
+    } else if (form.building.trim().length < 3) {
+      newErrors.building = 'Building name must be at least 3 characters.';
     }
-    if (!/^\d{6}$/.test(form.pincode.trim())) {
-      Alert.alert('Invalid pincode', 'Enter a valid 6-digit pincode.');
-      return false;
+
+    if (!form.street.trim()) {
+      newErrors.street = 'Street or Locality is required.';
+    } else if (form.street.trim().length < 5) {
+      newErrors.street = 'Street/Locality must be at least 5 characters.';
     }
-    if (!form.cityState.trim()) {
-      Alert.alert('Missing details', 'City & state is required.');
+
+    const pin = form.pincode.trim();
+    if (!pin) {
+      newErrors.pincode = 'Pincode is required.';
+    } else if (!/^\d{6}$/.test(pin)) {
+      newErrors.pincode = 'Pincode must be exactly 6 digits.';
+    }
+
+    const cityStateVal = form.cityState.trim();
+    if (!cityStateVal) {
+      newErrors.cityState = 'City & State is required.';
+    } else {
+      const parts = cityStateVal.split(',');
+      if (parts.length < 2 || !parts[0].trim() || !parts[1].trim()) {
+        newErrors.cityState = 'Please enter City and State separated by a comma (e.g. Hyderabad, Telangana).';
+      } else if (parts[0].trim().length < 2 || parts[1].trim().length < 2) {
+        newErrors.cityState = 'City and State must be at least 2 characters each.';
+      }
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      Alert.alert('Validation Error', 'Please fill out all required fields correctly.');
       return false;
     }
     return true;
@@ -292,12 +322,46 @@ const HomeServiceAddress: React.FC = () => {
               </TouchableOpacity>
               
               <Text style={[hsStyles.sectionTitle, { marginTop: SPACING.xs, marginBottom: SPACING.sm }]}>Address details</Text>
-              <Field label="Building / Apartment *" value={form.building} onChange={v => update('building', v)} />
-              <Field label="Floor & Flat" value={form.floorFlat || ''} onChange={v => update('floorFlat', v)} optional />
-              <Field label="Street / Locality *" value={form.street} onChange={v => update('street', v)} />
-              <Field label="Landmark" value={form.landmark || ''} onChange={v => update('landmark', v)} optional />
-              <Field label="Pincode *" value={form.pincode} onChange={v => update('pincode', v)} keyboard="number-pad" maxLength={6} />
-              <Field label="City & State *" value={form.cityState} onChange={v => update('cityState', v)} />
+              <Field
+                label="Building / Apartment *"
+                value={form.building}
+                onChange={v => update('building', v)}
+                error={errors.building}
+              />
+              <Field
+                label="Floor & Flat"
+                value={form.floorFlat || ''}
+                onChange={v => update('floorFlat', v)}
+                optional
+                error={errors.floorFlat}
+              />
+              <Field
+                label="Street / Locality *"
+                value={form.street}
+                onChange={v => update('street', v)}
+                error={errors.street}
+              />
+              <Field
+                label="Landmark"
+                value={form.landmark || ''}
+                onChange={v => update('landmark', v)}
+                optional
+                error={errors.landmark}
+              />
+              <Field
+                label="Pincode *"
+                value={form.pincode}
+                onChange={v => update('pincode', v)}
+                keyboard="number-pad"
+                maxLength={6}
+                error={errors.pincode}
+              />
+              <Field
+                label="City & State *"
+                value={form.cityState}
+                onChange={v => update('cityState', v)}
+                error={errors.cityState}
+              />
               {!!form.latitude && !!form.longitude ? (
                 <View style={{ marginTop: SPACING.sm, padding: SPACING.md, backgroundColor: '#EFF6FF', borderRadius: LAYOUT.borderRadius.md, borderWidth: 1, borderColor: '#BFDBFE' }}>
                   <Text style={{ fontSize: moderateScale(13), color: '#1E3A8A', fontWeight: '700', marginBottom: 4 }}>📍 GPS Coordinates Selected</Text>
@@ -352,20 +416,25 @@ const Field: React.FC<{
   optional?: boolean;
   keyboard?: 'default' | 'number-pad';
   maxLength?: number;
-}> = ({ label, value, onChange, optional, keyboard, maxLength }) => (
+  error?: string;
+}> = ({ label, value, onChange, optional, keyboard, maxLength, error }) => (
   <View style={styles.field}>
-    <Text style={styles.label}>
+    <Text style={[styles.label, error ? { color: '#EF4444' } : null]}>
       {label}
       {optional ? ' (optional)' : ''}
     </Text>
     <TextInput
-      style={styles.input}
+      style={[
+        styles.input,
+        error ? { borderColor: '#EF4444', borderWidth: 1.5 } : null,
+      ]}
       value={value}
       onChangeText={onChange}
       placeholderTextColor={HS_COLORS.textMuted}
       keyboardType={keyboard}
       maxLength={maxLength}
     />
+    {error ? <Text style={styles.errorText}>{error}</Text> : null}
   </View>
 );
 
@@ -495,6 +564,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: HS_COLORS.border,
     backgroundColor: HS_COLORS.bg,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: moderateScale(11),
+    marginTop: 4,
+    fontWeight: '500',
   },
 });
 

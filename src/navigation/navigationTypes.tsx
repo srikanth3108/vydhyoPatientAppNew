@@ -269,7 +269,8 @@ DateSelection: {
     selectedOption: string | null;
   };
   MyAppointments: undefined;
-  AppointmentDetails: { appointment: UpcomingAppointment | CompletedAppointment | CancelledAppointment };
+  AppointmentDetails: { appointment: UpcomingAppointment | CompletedAppointment | CancelledAppointment; language?: 'en' | 'tel' | 'hi' };
+  HomecareAppointmentDetails: { appointment: UpcomingAppointment | CompletedAppointment | CancelledAppointment; language?: 'en' | 'tel' | 'hi' };
   ViewDetails: { appointment: UpcomingAppointment | CompletedAppointment | CancelledAppointment };
   orderID: { orderID: string};
   Reschedule: { appointment: UpcomingAppointment };

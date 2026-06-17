@@ -32,6 +32,7 @@ import Reschedule from '../screens/my-appointments/Reschedule';
 import Cancel from '../screens/my-appointments/Cancel';
 import CancelConfirmation from '../screens/my-appointments/CancelConfirmation';
 import AppointmentDetails from '../screens/my-appointments/AppointmentDetails';
+import HomecareAppointmentDetails from '../screens/homeservices/booking/HomecareAppointmentDetails';
 import ReBook from '../screens/my-appointments/ReBook';
 import CancelledAppointmentDetails from '../screens/my-appointments/CancelledAppointmentDetails';
 import CancelAppointment from '../screens/appointment/CancelAppointment';
@@ -246,6 +247,7 @@ export default function Routing() {
         <Stack.Screen name="Cancel" component={Cancel} options={{ title: t('Cancel Appointment'), headerTitleAlign: 'center' }} />
         <Stack.Screen name="CancelConfirmation" component={CancelConfirmation} options={{ headerShown: false }} />
         <Stack.Screen name="AppointmentDetails" component={AppointmentDetails} options={{ title: t('Appointment Details'), headerTitleAlign: 'center' }} />
+        <Stack.Screen name="HomecareAppointmentDetails" component={HomecareAppointmentDetails} options={{ title: t('Appointment Details'), headerTitleAlign: 'center' }} />
         <Stack.Screen name="ReBook" component={ReBook} options={{ title: t('Select Time'), headerTitleAlign: 'center' }} />
         <Stack.Screen name="CancelledAppointmentDetails" component={CancelledAppointmentDetails} options={{ title: t('Appointment Details'), headerTitleAlign: 'center' }} />
         <Stack.Screen name="CancelAppointment" component={CancelAppointment} options={{ headerShown: false }} />

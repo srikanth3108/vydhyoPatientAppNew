@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AuthFetch, AuthPost, ENDPOINTS, SubmitProviderRating } from '../../services';
+import { AuthFetch, AuthPost, ENDPOINTS, SubmitProviderRating } from '../../../services';
 import {
   View,
   Text,
@@ -22,17 +22,17 @@ import {
   UpcomingAppointment,
   CompletedAppointment,
   CancelledAppointment,
-} from '../../navigation/navigationTypes';
+} from '../../../navigation/navigationTypes';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
-import { LAYOUT, moderateScale, SPACING } from '../../utils/responsive';
+import { LAYOUT, moderateScale, SPACING } from '../../../utils/responsive';
 
-type AppointmentDetailsScreenNavigationProp = StackNavigationProp<
+type HomecareAppointmentDetailsScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
-  'AppointmentDetails'
+  'HomecareAppointmentDetails'
 >;
 
-interface AppointmentDetailsProps {
+interface HomecareAppointmentDetailsProps {
   route: {
     params: {
       appointment:
@@ -200,7 +200,7 @@ const translations = {
 };
 /** ================================================================ */
 
-const AppointmentDetails: React.FC<AppointmentDetailsProps> = ({ route }) => {
+const HomecareAppointmentDetails: React.FC<HomecareAppointmentDetailsProps> = ({ route }) => {
   const appointment: any = route.params.appointment;
   const languageParam = route.params.language;
   const currentUser = useSelector((state: any) => state.currentUser);
@@ -209,7 +209,7 @@ const AppointmentDetails: React.FC<AppointmentDetailsProps> = ({ route }) => {
 
   console.log('appointmentroute', appointment);
 
-  const navigation = useNavigation<AppointmentDetailsScreenNavigationProp>();
+  const navigation = useNavigation<HomecareAppointmentDetailsScreenNavigationProp>();
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [selectedClinic, setSelectedClinic] = useState<any>({});
@@ -1647,4 +1647,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AppointmentDetails;
+export default HomecareAppointmentDetails;

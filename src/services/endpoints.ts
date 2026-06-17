@@ -84,7 +84,9 @@ export const ENDPOINTS = {
   GET_FAMILY_MEMBERS: 'family-member/getFamilyMembers',
   ADD_FAMILY_MEMBER: 'family-member/addFamilyMember',
   UPDATE_FAMILY_MEMBER: 'family-member/updateFamilyMember',
+  GET_PROVIDER_APPOINTMENTS: (userId: string, status?: string) => status ? `appointment/patient/provider-appointments?userId=${userId}&status=${status}` : `appointment/patient/provider-appointments?userId=${userId}`,
   CREATE_PROVIDER_APPOINTMENT:'appointment/createProviderAppointmentWithGateway',
-  PAYMENT_VERIFY:'appointment/verifyProviderAppointmentPayment'
+  PAYMENT_VERIFY:'appointment/verifyProviderAppointmentPayment',
+  SUBMIT_PROVIDER_RATING: (appointmentId: string) => `appointment/submitPatientRating/${appointmentId}`,
   // DELETE_FAMILY_MEMBER: (familyMemberId: string) => `family-member/deleteFamilyMember/${familyMemberId}`,
 };

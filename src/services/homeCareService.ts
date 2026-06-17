@@ -578,3 +578,37 @@ export const getAddressById = async (userId: string) => {
 
 
 
+
+export const GetProviderAppointments = async (userId: string, status?: string) => {
+  try {
+    const response = await server.get(ENDPOINTS.GET_PROVIDER_APPOINTMENTS(userId, status), {
+      requiresAuth: true,
+    });
+    const result = response.data as any;
+    if (result.status === 'success' && result.data) {
+      return { appointments: result.data };
+    }
+    return { error: result.message || 'Failed to fetch appointments' };
+  } catch (err) {
+    console.error('Error fetching appointments:', err);
+    const errorMsg = handleApiError(err);
+    return { error: errorMsg };
+  }
+}
+
+export const SubmitProviderRating = async (appointmentId: string, ratingData: any) => {
+  try {
+    const response = await server.patch(ENDPOINTS.SUBMIT_PROVIDER_RATING(appointmentId), ratingData, {
+      requiresAuth: true,
+    });
+    const result = response.data as any;
+    if (result.status === 'success') {
+      return { success: true, data: result.data, message: result.message };
+    }
+    return { success: false, error: result.message || 'Failed to submit rating' };
+  } catch (err) {
+    console.error('Error submitting rating:', err);
+    const errorMsg = handleApiError(err);
+    return { success: false, error: errorMsg };
+  }
+}

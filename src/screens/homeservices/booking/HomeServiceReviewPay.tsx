@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -67,6 +67,8 @@ const HomeServiceReviewPay: React.FC = () => {
 
   const [providerDetails, setProviderDetails] = useState<any>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const isCheckingPaymentRef = useRef(false);
+  const isPaymentRedirectHandledRef = useRef(false);
 
 
   useEffect(() => {
@@ -361,6 +363,8 @@ const HomeServiceReviewPay: React.FC = () => {
         });
         return;
       }
+      isPaymentRedirectHandledRef.current = false;
+      isCheckingPaymentRef.current = false;
       await AsyncStorage.setItem('linkId', linkId);
       setPaymentLink(link);
     } catch (error: any) {
@@ -373,9 +377,14 @@ const HomeServiceReviewPay: React.FC = () => {
   };
 
   const checkPaymentStatus = async () => {
+    if (isCheckingPaymentRef.current) return;
+    isCheckingPaymentRef.current = true;
     try {
       const linkId = await AsyncStorage.getItem('linkId');
-      if (!linkId) return;
+      if (!linkId) {
+        isCheckingPaymentRef.current = false;
+        return;
+      }
       const token = await getToken();
       const response: any = await AuthFetch(ENDPOINTS.GET_STATUS_BY_LINK_ID(linkId), token);
       if (response?.data?.length > 0) {
@@ -401,24 +410,19 @@ const HomeServiceReviewPay: React.FC = () => {
           } else {
             Toast.show({ type: 'error', text1: 'Payment Failed Verification', text2: `Order: ${linkId}` });
             await AsyncStorage.removeItem('linkId');
+            isCheckingPaymentRef.current = false;
           }
         } else {
           Toast.show({ type: 'error', text1: 'Payment Failed', text2: `Order: ${linkId}` });
+          isCheckingPaymentRef.current = false;
         }
       } else {
         Toast.show({ type: 'error', text1: 'Payment Failed', text2: `Order: ${linkId}` });
         await AsyncStorage.removeItem('linkId');
-        const latestStr = await AsyncStorage.getItem('latestAppointmentDetails');
-        if (latestStr) {
-          const appointmentDetails = JSON.parse(latestStr);
-        }
+        isCheckingPaymentRef.current = false;
       }
-    } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Payment Error',
-        text2: error?.message || 'Something went wrong',
-      });
+    } catch (e) {
+      isCheckingPaymentRef.current = false;
     }
   };
 
@@ -609,7 +613,8 @@ const HomeServiceReviewPay: React.FC = () => {
           source={{ uri: paymentLink }}
           startInLoadingState={true}
           onNavigationStateChange={navState => {
-            if (navState.url.includes('paymentResponse')) {
+            if (navState.url.includes('paymentResponse') && !isPaymentRedirectHandledRef.current) {
+              isPaymentRedirectHandledRef.current = true;
               Toast.show({ type: 'success', text1: 'Payment page completed' });
               checkPaymentStatus();
               setPaymentLink(null);
