@@ -334,7 +334,7 @@ const ProviderDetailsScreen: React.FC = () => {
           </View>
         </View>
 
-        {(provider.highestQualification ||
+        {!!(provider.highestQualification ||
           provider.specialization ||
           provider.profession) && (
           <View style={styles.sectionContainer}>
@@ -374,7 +374,7 @@ const ProviderDetailsScreen: React.FC = () => {
           </View>
         </View>
 
-        {provider.documents && provider.documents.length > 0 && (
+        {!!(provider.documents && provider.documents.length > 0) && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitlePremium}>Documents</Text>
             {provider.documents.map((doc, idx) => (
@@ -386,18 +386,18 @@ const ProviderDetailsScreen: React.FC = () => {
           </View>
         )}
 
-        {(provider.gender ||
+        {!!(provider.gender ||
           provider.dateOfBirth ||
           provider.totalExperience) && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitlePremium}>Personal Details</Text>
-            {provider.gender && (
+            {!!provider.gender && (
               <View style={styles.availCard}>
                 <View style={styles.availIconBox}><Text>👤</Text></View>
                 <Text style={styles.availLine}>Gender: {provider.gender}</Text>
               </View>
             )}
-            {provider.totalExperience && (
+            {!!provider.totalExperience && (
               <View style={styles.availCard}>
                 <View style={styles.availIconBox}><Text>💼</Text></View>
                 <Text style={styles.availLine}>Experience: {provider.totalExperience} years</Text>

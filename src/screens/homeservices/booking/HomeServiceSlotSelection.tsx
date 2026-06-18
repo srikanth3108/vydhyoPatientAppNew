@@ -18,12 +18,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getProviderById,
 } from '../../../data/mockHomeServices';
-import {  DateSlots, SlotData, getProviderDetailsById, getProviderSlotsAvailability } from '../../../services/homeCareService';
+import { DateSlots, SlotData, getProviderDetailsById, getProviderSlotsAvailability } from '../../../services/homeCareService';
 import { HS_COLORS, hsStyles } from '../homeServiceTheme';
 import { SPACING, moderateScale, LAYOUT, SAFE_AREA } from '../../../utils/responsive';
 import { useSelector } from 'react-redux';
 
-type Params = { providerId: string; role?: string; categoryId?: string,provider?: any };
+type Params = { providerId: string; role?: string; categoryId?: string, provider?: any };
 type NavList = {
   HomeServiceSlotSelection: Params;
   HomeServiceReason: Params & { date: string; time: string };
@@ -68,18 +68,18 @@ const HomeServiceSlotSelection: React.FC = () => {
         ]);
 
         if (providerResult.provider) {
-           setProvider(providerResult.provider);
+          setProvider(providerResult.provider);
         }
 
         if (slotsResult.error) {
-           // We do not show full screen error for 'No availability found', just empty slots
-           setAllDateSlots([]);
+          // We do not show full screen error for 'No availability found', just empty slots
+          setAllDateSlots([]);
         } else if (slotsResult.data?.dates) {
           setAllDateSlots(slotsResult.data.dates);
           // Default to current day
           setSelectedDate(moment().format('YYYY-MM-DD'));
           if (!providerResult.provider && slotsResult.data.provider) {
-             setProvider(slotsResult.data.provider);
+            setProvider(slotsResult.data.provider);
           }
         }
       } catch (err) {
@@ -102,8 +102,8 @@ const HomeServiceSlotSelection: React.FC = () => {
           offset === 0
             ? `Today, ${d.format('DD MMM')}`
             : offset === 1
-            ? `Tomorrow, ${d.format('DD MMM')}`
-            : d.format('ddd, DD MMM'),
+              ? `Tomorrow, ${d.format('DD MMM')}`
+              : d.format('ddd, DD MMM'),
       };
     });
   }, []);
@@ -222,7 +222,7 @@ const HomeServiceSlotSelection: React.FC = () => {
   return (
     <SafeAreaView style={hsStyles.screen}>
       <StatusBar barStyle="dark-content" />
-      
+
       {loading && (
         <View style={[hsStyles.screen, styles.centerContent]}>
           <ActivityIndicator size="large" color={HS_COLORS.primary} />
@@ -269,7 +269,7 @@ const HomeServiceSlotSelection: React.FC = () => {
                     </View>
                   )}
                   <TouchableOpacity style={{ width: '100%', alignItems: 'flex-end', marginTop: 8 }} onPress={() => navigation.navigate('ProviderDetails' as any, { providerId, role, categoryId })}>
-                     <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
+                    <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>👁 View Details</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -286,148 +286,164 @@ const HomeServiceSlotSelection: React.FC = () => {
                 </View>
               )}
 
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={styles.scroll}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Select date header with calendar toggle */}
-            <View style={styles.sectionHeader}>
-              <Text style={hsStyles.sectionTitle}>Select date</Text>
-              <TouchableOpacity style={styles.calendarButton} onPress={toggleCalendar}>
-                <Text style={styles.calendarIcon}>🗓</Text>
-                <Text style={styles.selectText}>Select</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Expandable Calendar */}
-            {isCalendarVisible && (
-              <View style={styles.calendarCard}>
-                <View style={styles.dateNavigation}>
-                  <TouchableOpacity style={styles.navButton} onPress={handlePrevMonth}>
-                    <Text style={styles.navButtonText}>‹</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.currentMonth}>{currentMonth.format('MMMM YYYY')}</Text>
-                  <TouchableOpacity style={styles.navButton} onPress={handleNextMonth}>
-                    <Text style={styles.navButtonText}>›</Text>
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={styles.scroll}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Select date header with calendar toggle */}
+                <View style={styles.sectionHeader}>
+                  <Text style={hsStyles.sectionTitle}>Select date</Text>
+                  <TouchableOpacity style={styles.calendarButton} onPress={toggleCalendar}>
+                    <Text style={styles.calendarIcon}>🗓</Text>
+                    <Text style={styles.selectText}>Select</Text>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.calendarHeader}>
-                  {DAY_HEADERS.map(d => (
-                    <Text key={d} style={styles.calendarHeaderText}>{d}</Text>
-                  ))}
+                {/* Expandable Calendar */}
+                {isCalendarVisible && (
+                  <View style={styles.calendarCard}>
+                    <View style={styles.dateNavigation}>
+                      <TouchableOpacity style={styles.navButton} onPress={handlePrevMonth}>
+                        <Text style={styles.navButtonText}>‹</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.currentMonth}>{currentMonth.format('MMMM YYYY')}</Text>
+                      <TouchableOpacity style={styles.navButton} onPress={handleNextMonth}>
+                        <Text style={styles.navButtonText}>›</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.calendarHeader}>
+                      {DAY_HEADERS.map(d => (
+                        <Text key={d} style={styles.calendarHeaderText}>{d}</Text>
+                      ))}
+                    </View>
+
+                    <View style={styles.calendarGrid}>
+                      {generateCalendarDays().map(day => renderCalendarDay(day))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Quick date chips with availability status */}
+                <View style={styles.dateRow}>
+                  {quickDates.map(d => {
+                    const dateSlots = allDateSlots.find(ds => ds.date === d.date);
+                    const hasSlots = dateSlots && dateSlots.availableSlots > 0;
+                    const statusText = hasSlots ? 'Check availability' : 'No slots available';
+
+                    return (
+                      <TouchableOpacity
+                        key={d.date}
+                        style={[
+                          styles.dateChip,
+                          selectedDate === d.date && styles.dateChipActive,
+                        ]}
+                        onPress={() => {
+                          setSelectedDate(d.date);
+                          setSelectedTime(null);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dateChipText,
+                            selectedDate === d.date && styles.dateChipTextActive,
+                          ]}
+                        >
+                          {d.label}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.dateChipStatus,
+                            selectedDate === d.date && styles.dateChipStatusActive,
+                            !hasSlots && styles.dateChipStatusUnavailable,
+                          ]}
+                        >
+                          {statusText}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
-                <View style={styles.calendarGrid}>
-                  {generateCalendarDays().map(day => renderCalendarDay(day))}
+                {/* Selected date display */}
+                <Text style={[hsStyles.sectionTitle, { marginTop: SPACING.lg }]}>
+                  {moment(selectedDate).format('dddd, DD MMM')}
+                </Text>
+
+                {/* Slots grid or no availability message */}
+                <View style={styles.slotGrid}>
+                  {slots.length === 0 ? (
+                    <Text style={[styles.noSlotsText]}>No slots available</Text>
+                  ) : (
+                    slots.map(slot => {
+                      const now = moment();
+                      
+                      // Parse the time robustly
+                      const parsedTime = moment(slot.time, ['hh:mm A', 'h:mm A', 'HH:mm', 'H:mm']);
+                      
+                      // Construct full date-time string and compare
+                      const slotMoment = moment(`${selectedDate} ${parsedTime.format('HH:mm')}`, 'YYYY-MM-DD HH:mm');
+                      const isPast = slotMoment.isBefore(now);
+                      
+                      const isBooked = slot.status === 'booked';
+                      const isDisabled = isPast || isBooked;
+                      
+                      const displayTime = parsedTime.format('h:mm A');
+
+                      return (
+                        <TouchableOpacity
+                          key={slot.time}
+                          style={[
+                            styles.slotBtn,
+                            isDisabled && styles.slotBtnBooked,
+                            selectedTime === slot.time && styles.slotBtnActive,
+                          ]}
+                          onPress={() => {
+                            if (!isDisabled) {
+                              setSelectedTime(slot.time);
+                            }
+                          }}
+                          disabled={isDisabled}
+                        >
+                          <Text
+                            style={[
+                              styles.slotText,
+                              isDisabled && styles.slotTextBooked,
+                              selectedTime === slot.time && styles.slotTextActive,
+                            ]}
+                          >
+                            {displayTime}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
                 </View>
+              </ScrollView>
+
+              <View
+                style={[
+                  hsStyles.footer,
+                  {
+                    paddingBottom:
+                      Platform.OS === 'android'
+                        ? Math.max(insets.bottom, SAFE_AREA.safeBottom) + SPACING.xs
+                        : insets.bottom,
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  style={[
+                    hsStyles.primaryBtn,
+                    !selectedTime && styles.btnDisabled,
+                  ]}
+                  disabled={!selectedTime}
+                  onPress={handleContinue}
+                >
+                  <Text style={hsStyles.primaryBtnText}>Continue</Text>
+                </TouchableOpacity>
               </View>
-            )}
-
-            {/* Quick date chips with availability status */}
-            <View style={styles.dateRow}>
-              {quickDates.map(d => {
-                const dateSlots = allDateSlots.find(ds => ds.date === d.date);
-                const hasSlots = dateSlots && dateSlots.availableSlots > 0;
-                const statusText = hasSlots ? 'Check availability' : 'No slots available';
-
-                return (
-                  <TouchableOpacity
-                    key={d.date}
-                    style={[
-                      styles.dateChip,
-                      selectedDate === d.date && styles.dateChipActive,
-                    ]}
-                    onPress={() => {
-                      setSelectedDate(d.date);
-                      setSelectedTime(null);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dateChipText,
-                        selectedDate === d.date && styles.dateChipTextActive,
-                      ]}
-                    >
-                      {d.label}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.dateChipStatus,
-                        selectedDate === d.date && styles.dateChipStatusActive,
-                        !hasSlots && styles.dateChipStatusUnavailable,
-                      ]}
-                    >
-                      {statusText}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Selected date display */}
-            <Text style={[hsStyles.sectionTitle, { marginTop: SPACING.lg }]}>
-              {moment(selectedDate).format('dddd, DD MMM')}
-            </Text>
-
-            {/* Slots grid or no availability message */}
-            <View style={styles.slotGrid}>
-              {slots.length === 0 ? (
-                <Text style={[styles.noSlotsText]}>No slots available</Text>
-              ) : (
-                slots.map(slot => (
-                  <TouchableOpacity
-                    key={slot.time}
-                    style={[
-                      styles.slotBtn,
-                      slot.status === 'booked' && styles.slotBtnBooked,
-                      selectedTime === slot.time && styles.slotBtnActive,
-                    ]}
-                    onPress={() => {
-                      if (slot.status === 'available') {
-                        setSelectedTime(slot.time);
-                      }
-                    }}
-                    disabled={slot.status === 'booked'}
-                  >
-                    <Text
-                      style={[
-                        styles.slotText,
-                        slot.status === 'booked' && styles.slotTextBooked,
-                        selectedTime === slot.time && styles.slotTextActive,
-                      ]}
-                    >
-                      {slot.time}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-              )}
-            </View>
-          </ScrollView>
-
-          <View
-            style={[
-              hsStyles.footer,
-              {
-                paddingBottom:
-                  Platform.OS === 'android'
-                    ? Math.max(insets.bottom, SAFE_AREA.safeBottom) + SPACING.xs
-                    : insets.bottom,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                hsStyles.primaryBtn,
-                !selectedTime && styles.btnDisabled,
-              ]}
-              disabled={!selectedTime}
-              onPress={handleContinue}
-            >
-              <Text style={hsStyles.primaryBtnText}>Continue</Text>
-            </TouchableOpacity>
-          </View>
             </>
           )}
         </>
@@ -638,7 +654,7 @@ const styles = StyleSheet.create({
   dateChipTextActive: { color: '#FFF' },
   dateChipStatus: {
     fontSize: moderateScale(10),
-    color:  '#6B7280',
+    color: '#6B7280',
     textAlign: 'center',
     marginTop: SPACING.xxs,
   },

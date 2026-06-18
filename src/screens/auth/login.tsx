@@ -599,18 +599,22 @@ const Login = () => {
         await AsyncStorage.setItem('userId', id);
         await fetchWalletData(accessToken, id)
         // Get FCM token & update backend
-        const fcmToken = await messaging().getToken();
-        console.log('FCM Token:', fcmToken);
-        if (fcmToken) {
-          const updateResponse = await AuthPost(
-            ENDPOINTS.UPDATE_FCM_TOKEN,
-            { fcmToken },
-            accessToken,
-          );
-          if (updateResponse?.status === 'success') {
-            // Merge FCM token into userData
-            userData = { ...userData, fcmToken };
+        try {
+          const fcmToken = await messaging().getToken();
+          console.log('FCM Token:', fcmToken);
+          if (fcmToken) {
+            const updateResponse = await AuthPost(
+              ENDPOINTS.UPDATE_FCM_TOKEN,
+              { fcmToken },
+              accessToken,
+            );
+            if (updateResponse?.status === 'success') {
+              // Merge FCM token into userData
+              userData = { ...userData, fcmToken };
+            }
           }
+        } catch (fcmErr) {
+          console.log('⚠️ FCM token sync failed after OTP verification in login:', fcmErr);
         }
 
         dispatch({ type: 'currentUser', payload: userData });
