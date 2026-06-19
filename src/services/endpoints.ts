@@ -1,5 +1,6 @@
 // Live server IP address
-export const BASE_URL = 'https://server.vydhyo.com';
+// export const BASE_URL = 'https://server.vydhyo.com';
+export const BASE_URL = "http://localhost:3000";
 
 // Testing / other IP addresses (commented out for reference)
 // const BASE_URL = 'http://vitals-backend-app-env.eba-2zkpksar.ap-south-1.elasticbeanstalk.com/api/v1';
@@ -89,4 +90,10 @@ export const ENDPOINTS = {
   PAYMENT_VERIFY:'appointment/verifyProviderAppointmentPayment',
   SUBMIT_PROVIDER_RATING: (appointmentId: string) => `appointment/submitPatientRating/${appointmentId}`,
   // DELETE_FAMILY_MEMBER: (familyMemberId: string) => `family-member/deleteFamilyMember/${familyMemberId}`,
+
+  // Rental Endpoints
+  GET_RENTAL_PRODUCTS: 'rental/patient/rentals/products',
+  GET_RENTAL_PRODUCT_DETAILS: (productId: string) => `rental/patient/rentals/products/${productId}`,
+  CALCULATE_RENTAL_PRICE: 'rental/patient/rentals/price-calculator',
+  PLACE_RENTAL_ORDER: 'rental/patient/rentals/orders',
 };

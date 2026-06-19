@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { RENTAL_PRODUCTS, RentalProduct } from '../../data/mockRentals';
+import { getRentalProducts } from '../../services/rentalService';
+import { ActivityIndicator } from 'react-native';
 import { getAgentById, getCategoryById } from '../../data/mockRentalCategories';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SPACING, moderateScale, SAFE_AREA, isTablet } from '../../utils/responsive';
@@ -25,13 +26,13 @@ type RouteParams = RouteProp<NavList, 'RentalsCatalog'>;
 type Nav = StackNavigationProp<NavList, 'RentalsCatalog'>;
 
 const ProductCard: React.FC<{
-  product: RentalProduct;
+  product: any;
   onPress: () => void;
 }> = ({ product, onPress }) => {
   return (
     <TouchableOpacity activeOpacity={0.92} onPress={onPress}>
       <View style={styles.card}>
-        <Image source={product.thumbnail} style={styles.thumb} />
+        <Image source={{ uri: product.imageUrl || 'https://vydhyo-assets.s3.amazonaws.com/products/dummy-prod-image.png' }} style={styles.thumb} />
         <View style={styles.cardBody}>
           <View style={styles.titleRow}>
             <Text style={styles.name} numberOfLines={1}>
@@ -40,25 +41,25 @@ const ProductCard: React.FC<{
             <View
               style={[
                 styles.pill,
-                { backgroundColor: product.availableNow ? '#DCFCE7' : '#FEF3C7' },
+                { backgroundColor: product.etaText?.includes('ETA') ? '#DCFCE7' : '#FEF3C7' },
               ]}
             >
               <Text
                 style={[
                   styles.pillText,
-                  { color: product.availableNow ? '#166534' : '#92400E' },
+                  { color: product.etaText?.includes('ETA') ? '#166534' : '#92400E' },
                 ]}
               >
-                {product.availableNow ? `ETA ${product.etaMinutes}m` : 'Pre-book'}
+                {product.etaText || 'Pre-book'}
               </Text>
             </View>
           </View>
           <Text style={styles.desc} numberOfLines={2}>
-            {product.shortDescription}
+            {product.description}
           </Text>
           <View style={styles.metaRow}>
             <Text style={styles.rating}>
-              ★ {product.rating} <Text style={styles.muted}>({product.reviewCount})</Text>
+              ★ {product.rating} <Text style={styles.muted}>({product.reviewsCount})</Text>
             </Text>
             <Text style={styles.price}>
               ₹{product.hourlyRate}/hr · ₹{product.dailyRate}/day
@@ -79,13 +80,31 @@ const RentalsCatalog: React.FC = () => {
   const category = useMemo(() => (categoryId ? getCategoryById(categoryId) : null), [categoryId]);
 
   const [query, setQuery] = useState('');
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await getRentalProducts();
+        if (res?.data) {
+          setProducts(res.data);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const items = useMemo(() => {
-    let filtered = RENTAL_PRODUCTS;
+    let filtered = products;
 
     if (agent) {
       if (agent.productIds && agent.productIds.length > 0) {
-        filtered = filtered.filter(p => agent.productIds.includes(p.id));
+        filtered = filtered.filter((p: any) => agent.productIds.includes(p.productId));
       } else if (categoryId) {
         filtered = filtered.filter(p => p.categoryId === categoryId);
       }
@@ -95,14 +114,13 @@ const RentalsCatalog: React.FC = () => {
 
     const q = query.trim().toLowerCase();
     if (!q) return filtered;
-    return filtered.filter(p => {
+    return filtered.filter((p: any) => {
       return (
-        p.name.toLowerCase().includes(q) ||
-        p.shortDescription.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q)
+        p.name?.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q)
       );
     });
-  }, [query, categoryId, agentId, agent]);
+  }, [query, categoryId, agentId, agent, products]);
 
   return (
     <View style={styles.screen}>
@@ -148,22 +166,28 @@ const RentalsCatalog: React.FC = () => {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>
-          {items.length} product{items.length !== 1 ? 's' : ''} available
-        </Text>
+        {loading ? (
+          <ActivityIndicator size="large" color={HS_COLORS.primary} style={{ marginTop: SPACING.xl }} />
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>
+              {items.length} product{items.length !== 1 ? 's' : ''} available
+            </Text>
 
-        {items.map(p => (
-          <ProductCard
-            key={p.id}
-            product={p}
-            onPress={() => navigation.navigate('RentalProductDetails', { productId: p.id })}
-          />
-        ))}
+            {items.map(p => (
+              <ProductCard
+                key={p.productId}
+                product={p}
+                onPress={() => navigation.navigate('RentalProductDetails', { productId: p.productId })}
+              />
+            ))}
 
-        {items.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No matching products found.</Text>
-          </View>
+            {items.length === 0 && (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No matching products found.</Text>
+              </View>
+            )}
+          </>
         )}
 
         <View style={{ height: SAFE_AREA.safeBottom }} />

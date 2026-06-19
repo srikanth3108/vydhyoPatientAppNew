@@ -9,6 +9,7 @@ import {
   ImageBackground,
   FlatList,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -61,6 +62,12 @@ const HomeServices: React.FC = () => {
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredRoles = roles.filter(role => 
+    role.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    getRoleTagline(role).toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   useEffect(() => {
     const fetchRoles = async () => {
@@ -187,7 +194,7 @@ const HomeServices: React.FC = () => {
 
       {roles.length > 0 && (
         <FlatList
-          data={roles}
+          data={filteredRoles}
           keyExtractor={item => item}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
@@ -199,7 +206,23 @@ const HomeServices: React.FC = () => {
           ]}
           ListHeaderComponent={
             <>
+              <View style={styles.searchContainer}>
+                <Text style={styles.searchIcon}>🔍</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search services..."
+                  placeholderTextColor="#94A3B8"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                <TouchableOpacity>
+                  <Text style={styles.filterIcon}>⚙️</Text>
+                </TouchableOpacity>
+              </View>
               <Text style={hsStyles.sectionTitle}>Choose a service</Text>
+              {filteredRoles.length === 0 && (
+                <Text style={styles.emptySearchText}>No services match your search.</Text>
+              )}
             </>
           }
           renderItem={renderitems}
@@ -316,6 +339,38 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingTop: SPACING.md,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    marginBottom: SPACING.md,
+    borderRadius: LAYOUT.borderRadius.md,
+    paddingHorizontal: SPACING.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  searchInput: {
+    flex: 1,
+    height: 48,
+    fontSize: moderateScale(14),
+    color: '#1E293B',
+  },
+  searchIcon: {
+    fontSize: moderateScale(16),
+    marginRight: SPACING.sm,
+    color: '#94A3B8',
+  },
+  filterIcon: {
+    fontSize: moderateScale(16),
+    marginLeft: SPACING.sm,
+    color: '#94A3B8',
+  },
+  emptySearchText: {
+    fontSize: moderateScale(14),
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: SPACING.lg,
   },
   columnWrapper: {
     justifyContent: 'space-between',

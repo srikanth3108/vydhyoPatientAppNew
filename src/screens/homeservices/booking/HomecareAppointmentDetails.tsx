@@ -219,6 +219,7 @@ const HomecareAppointmentDetails: React.FC<HomecareAppointmentDetailsProps> = ({
   // Premium Features: Downloading progress
   const [downloadProgress1, setDownloadProgress1] = useState<number | null>(null);
   const [downloadProgress2, setDownloadProgress2] = useState<number | null>(null);
+  const [downloadProgressInvoice, setDownloadProgressInvoice] = useState<number | null>(null);
   
   // Premium Features: Video Calling
   const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
@@ -257,6 +258,27 @@ const HomecareAppointmentDetails: React.FC<HomecareAppointmentDetailsProps> = ({
         }, 500);
       } else {
         setProgress(current);
+      }
+    }, 200);
+  };
+
+  const startInvoiceDownload = () => {
+    setDownloadProgressInvoice(0);
+    let current = 0;
+    const interval = setInterval(() => {
+      current += Math.floor(Math.random() * 20) + 15;
+      if (current >= 100) {
+        setDownloadProgressInvoice(100);
+        clearInterval(interval);
+        setTimeout(() => {
+          setDownloadProgressInvoice(null);
+          Alert.alert(
+            "Invoice Downloaded",
+            "Payment Invoice has been saved to your local storage."
+          );
+        }, 500);
+      } else {
+        setDownloadProgressInvoice(current);
       }
     }, 200);
   };
@@ -667,6 +689,25 @@ const HomecareAppointmentDetails: React.FC<HomecareAppointmentDetailsProps> = ({
             </View>
           </>
         )}
+
+        {/* Download Invoice Button */}
+        <View style={styles.paymentDividerLine} />
+        <View style={styles.invoiceDownloadRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ fontSize: 20, marginRight: 8 }}>🧾</Text>
+            <Text style={styles.invoiceText}>Download Payment Invoice</Text>
+          </View>
+          {downloadProgressInvoice !== null ? (
+            <View style={styles.downloadProgressContainer}>
+              <ActivityIndicator size="small" color="#0A3D62" />
+              <Text style={styles.progressText}>{downloadProgressInvoice}%</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.reportDownloadBtn} onPress={startInvoiceDownload}>
+              <Text style={styles.downloadBtnIcon}>⬇️</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   };
@@ -1288,6 +1329,17 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     fontWeight: '700',
     letterSpacing: 0.4,
+  },
+  invoiceDownloadRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  invoiceText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0A3D62',
   },
 
   // ── Clinical Deliverables: Reports card ──────────────────────────────────────

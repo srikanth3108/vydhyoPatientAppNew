@@ -12,7 +12,8 @@ import {
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getRentalProductById } from '../../data/mockRentals';
+import { getRentalProductById, calculateLivePrice } from '../../services/rentalService';
+import { ActivityIndicator } from 'react-native';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SAFE_AREA, SPACING, moderateScale, isTablet } from '../../utils/responsive';
 
@@ -36,11 +37,52 @@ const RentalProductDetails: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteT>();
   const insets = useSafeAreaInsets();
-  const product = getRentalProductById(route.params.productId);
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   type BillingUnit = 'hours' | 'days' | 'months';
   const [billingUnit, setBillingUnit] = useState<BillingUnit>('hours');
   const [qty, setQty] = useState(4);
+  const [livePricing, setLivePricing] = useState<any>(null);
+  const [pricingLoading, setPricingLoading] = useState(false);
+
+  React.useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const res = await getRentalProductById(route.params.productId);
+        if (res?.data) {
+          setProduct(res.data);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [route.params.productId]);
+
+  React.useEffect(() => {
+    const fetchPrice = async () => {
+      if (!product) return;
+      setPricingLoading(true);
+      try {
+        const res = await calculateLivePrice(product.productId, billingUnit, qty);
+        if (res?.pricing) {
+          setLivePricing(res.pricing);
+        } else if (res?.data) {
+          setLivePricing(res.data);
+        } else {
+          setLivePricing(res);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setPricingLoading(false);
+      }
+    };
+    fetchPrice();
+  }, [product?.productId, billingUnit, qty]);
 
   const rate =
     billingUnit === 'hours'
@@ -48,8 +90,16 @@ const RentalProductDetails: React.FC = () => {
       : billingUnit === 'days'
         ? product?.dailyRate ?? 0
         : (product?.dailyRate ?? 0) * 30;
-  const baseAmount = useMemo(() => rate * qty, [rate, qty]);
+  const baseAmount = livePricing?.rentalAmount ?? (rate * qty);
   const maxQty = billingUnit === 'hours' ? 12 : billingUnit === 'days' ? 14 : 12;
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={HS_COLORS.primary} />
+      </View>
+    );
+  }
 
   if (!product) {
     return (
@@ -59,17 +109,17 @@ const RentalProductDetails: React.FC = () => {
     );
   }
 
-  const canProceed = qty > 0;
+  const canProceed = qty > 0 && !pricingLoading;
 
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.heroCard}>
-          <Image source={product.thumbnail} style={styles.heroImage} />
+          <Image source={{ uri: product.imageUrl || 'https://vydhyo-assets.s3.amazonaws.com/products/dummy-prod-image.png' }} style={styles.heroImage} />
           <View style={styles.heroRight}>
             <Text style={styles.name}>{product.name}</Text>
-            <Text style={styles.short}>{product.shortDescription}</Text>
+            <Text style={styles.short}>{product.description}</Text>
             <View style={styles.badgesRow}>
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>★ {product.rating}</Text>
@@ -80,11 +130,11 @@ const RentalProductDetails: React.FC = () => {
               <View
                 style={[
                   styles.badgeSoft,
-                  { backgroundColor: product.availableNow ? '#DCFCE7' : '#FEF3C7' },
+                  { backgroundColor: product.etaText?.includes('ETA') ? '#DCFCE7' : '#FEF3C7' },
                 ]}
               >
-                <Text style={[styles.badgeSoftText, { color: product.availableNow ? '#166534' : '#92400E' }]}>
-                  {product.availableNow ? `ETA ${product.etaMinutes}m` : 'Pre-book'}
+                <Text style={[styles.badgeSoftText, { color: product.etaText?.includes('ETA') ? '#166534' : '#92400E' }]}>
+                  {product.etaText || 'Pre-book'}
                 </Text>
               </View>
             </View>
@@ -171,7 +221,7 @@ const RentalProductDetails: React.FC = () => {
 
           <View style={styles.finePrint}>
             <Text style={styles.finePrintText}>
-              Deposit ₹{product.deposit} {product.refundableDeposit ? '(refundable)' : ''} · Delivery ₹{product.deliveryFee}
+              Deposit ₹{livePricing?.depositAmount ?? product?.deposit ?? 0} {product?.refundableDeposit ? '(refundable)' : ''} · Delivery ₹{livePricing?.deliveryFee ?? product?.deliveryFee ?? 0}
             </Text>
           </View>
         </View>
@@ -184,7 +234,7 @@ const RentalProductDetails: React.FC = () => {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Highlights</Text>
           <View style={styles.chipsRow}>
-            {product.highlights.map(h => (
+            {(product.highlights || []).map((h: string) => (
               <View key={h} style={styles.chip}>
                 <Text style={styles.chipText}>✓ {h}</Text>
               </View>
@@ -195,7 +245,7 @@ const RentalProductDetails: React.FC = () => {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Specifications</Text>
           <View style={styles.specGrid}>
-            {product.specs.map(s => (
+            {(product.specs || []).map((s: any) => (
               <View key={s.label} style={styles.specCard}>
                 <Text style={styles.specLabel}>{s.label}</Text>
                 <Text style={styles.specValue}>{s.value}</Text>
@@ -206,7 +256,7 @@ const RentalProductDetails: React.FC = () => {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>What’s included</Text>
-          {product.included.map(it => (
+          {(product.included || []).map((it: string) => (
             <Text key={it} style={styles.listItem}>
               • {it}
             </Text>
@@ -215,7 +265,7 @@ const RentalProductDetails: React.FC = () => {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Safety & hygiene</Text>
-          {product.safety.map(it => (
+          {(product.safety || []).map((it: string) => (
             <Text key={it} style={styles.listItem}>
               • {it}
             </Text>
@@ -247,14 +297,14 @@ const RentalProductDetails: React.FC = () => {
           disabled={!canProceed}
           onPress={() =>
             navigation.navigate('RentalAddress', {
-              productId: product.id,
+              productId: product.productId || product.id,
               billingUnit,
               quantity: qty,
               baseAmount,
             })
           }
         >
-          <Text style={styles.ctaText}>Continue</Text>
+          {pricingLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.ctaText}>Continue</Text>}
         </TouchableOpacity>
       </View>
     </View>

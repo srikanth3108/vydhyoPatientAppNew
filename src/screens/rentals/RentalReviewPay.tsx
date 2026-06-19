@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { addRentalOrderFromBooking } from '../../data/mockOrders';
-import { getRentalProductById } from '../../data/mockRentals';
+import { placeRentalOrder, getRentalProductById } from '../../services/rentalService';
+import { useSelector } from 'react-redux';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SPACING, moderateScale, SAFE_AREA, isTablet } from '../../utils/responsive';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,7 +57,26 @@ const RentalReviewPay: React.FC = () => {
   const insets = useSafeAreaInsets();
 
   const { productId, billingUnit, quantity, baseAmount, address } = route.params;
-  const product = getRentalProductById(productId);
+  const user: any = useSelector((state: any) => state.currentUser);
+  
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const res = await getRentalProductById(productId);
+        if (res?.data) {
+          setProduct(res.data);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [productId]);
 
   const [method, setMethod] = useState<(typeof PAYMENT_OPTIONS)[number]['id']>('upi');
   const [paying, setPaying] = useState(false);
@@ -66,6 +85,14 @@ const RentalReviewPay: React.FC = () => {
   const delivery = product?.deliveryFee ?? 0;
   const platformFee = Math.max(19, Math.round(baseAmount * 0.02));
   const total = useMemo(() => baseAmount + deposit + delivery + platformFee, [baseAmount, deposit, delivery, platformFee]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={HS_COLORS.primary} />
+      </View>
+    );
+  }
 
   if (!product) {
     return (
@@ -84,25 +111,47 @@ const RentalReviewPay: React.FC = () => {
     `${address.cityState} - ${address.pincode}`,
   ].filter(Boolean);
 
-  const handlePay = () => {
+  const handlePay = async () => {
     setPaying(true);
-    setTimeout(() => {
-      setPaying(false);
-      const orderId = `ORD-RNT-${Date.now().toString().slice(-6)}`;
-      const addressShort = `${address.cityState}`.split(',')[0] || address.pincode;
-      addRentalOrderFromBooking({
-        orderId,
+    try {
+      const orderData = {
+        patientId: user?.userId || 'VYDUSER1001',
         productId,
-        productName: product!.name,
-        thumbnail: product!.thumbnail,
-        billingUnit,
-        duration: quantity,
-        totalAmount: total,
-        deposit,
-        addressShort,
-      });
+        duration: {
+          type: billingUnit,
+          value: quantity
+        },
+        shippingAddress: {
+          fullName: address.fullName,
+          phone: address.phone,
+          building: address.building,
+          street: address.street,
+          landmark: address.landmark || '',
+          pincode: address.pincode,
+          city: address.cityState.split(',')[0]?.trim() || '',
+          state: address.cityState.split(',')[1]?.trim() || ''
+        },
+        pricing: {
+          rentalAmount: baseAmount,
+          depositAmount: deposit,
+          deliveryFee: delivery,
+          platformFee: platformFee,
+          totalPayable: total,
+          currency: 'INR'
+        }
+      };
+
+      const response = await placeRentalOrder(orderData);
+      
+      // Navigate to order confirmation, passing the order ID from response or generating a fallback
+      const orderId = response?.data?.orderId || `ORD-RNT-${Date.now().toString().slice(-6)}`;
       navigation.replace('RentalOrderConfirmation', { orderId });
-    }, 1600);
+    } catch (error) {
+      Alert.alert('Payment Error', 'Failed to place rental order. Please try again.');
+      console.error(error);
+    } finally {
+      setPaying(false);
+    }
   };
 
   return (
