@@ -15,7 +15,8 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { getRentalProductById } from '../../data/mockRentals';
+import { getRentalProductById } from '../../services/rentalService';
+import { ActivityIndicator } from 'react-native';
 import { HS_COLORS, hsStyles } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SPACING, moderateScale, SAFE_AREA, isTablet } from '../../utils/responsive';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,8 +51,25 @@ const RentalAddress: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteT>();
   const insets = useSafeAreaInsets();
-  const product = getRentalProductById(route.params.productId);
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
+
+  React.useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const res = await getRentalProductById(route.params.productId);
+        if (res?.data) {
+          setProduct(res.data);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [route.params.productId]);
 
   const [useSaved, setUseSaved] = useState(true);
   const saved = useMemo<AddressForm>(
@@ -80,6 +98,14 @@ const RentalAddress: React.FC = () => {
     setUseSaved(false);
     setShowLocationModal(false);
   };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={HS_COLORS.primary} />
+      </View>
+    );
+  }
 
   if (!product) {
     return (

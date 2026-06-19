@@ -61,11 +61,12 @@ import ReferAndEarn from '../screens/sidebar/ReferAndEarn';
 import DoctorDetails from '../screens/appointment/DoctorDetails';
 import PinManagement from '../screens/auth/PinManagement';
 import RentalCategories from '../screens/rentals/RentalCategories';
-import RentalAgents from '../screens/rentals/RentalAgents';
+// import RentalAgents from '../screens/rentals/RentalAgents';
 import RentalsCatalog from '../screens/rentals/RentalsCatalog';
 import RentalProductDetails from '../screens/rentals/RentalProductDetails';
 import RentalAddress from '../screens/rentals/RentalAddress';
 import RentalReviewPay from '../screens/rentals/RentalReviewPay';
+import RentalPaymentGateway from '../screens/rentals/RentalPaymentGateway';
 import RentalOrderConfirmation from '../screens/rentals/RentalOrderConfirmation';
 import SelectLocFromMap from '../screens/homeservices/legacy/SelectLocFromMap';
 import HomeServiceProviders from '../screens/homeservices/core/HomeServiceProviders';
@@ -224,11 +225,12 @@ export default function Routing() {
 
         <Stack.Screen name="SelectIssue" component={SelectIssue} options={{ title: t('Select Issue'), headerTitleAlign: 'center' }} />
         <Stack.Screen name="RentalCategories" component={RentalCategories} options={{ title: 'Rentals', headerTitleAlign: 'center' }} />
-        <Stack.Screen name="RentalAgents" component={RentalAgents} options={{ title: 'Select Agent', headerTitleAlign: 'center' }} />
+        {/* <Stack.Screen name="RentalAgents" component={RentalAgents} options={{ title: 'Select Agent', headerTitleAlign: 'center' }} /> */}
         <Stack.Screen name="RentalsCatalog" component={RentalsCatalog} options={{ title: 'Products', headerTitleAlign: 'center' }} />
         <Stack.Screen name="RentalProductDetails" component={RentalProductDetails} options={{ title: 'Product Details', headerTitleAlign: 'center' }} />
         <Stack.Screen name="RentalAddress" component={RentalAddress} options={{ title: 'Delivery Address', headerTitleAlign: 'center' }} />
         <Stack.Screen name="RentalReviewPay" component={RentalReviewPay} options={{ title: 'Review & Pay', headerTitleAlign: 'center' }} />
+        <Stack.Screen name="RentalPaymentGateway" component={RentalPaymentGateway} options={{ title: 'Processing Payment', headerTitleAlign: 'center' }} />
         <Stack.Screen name="RentalOrderConfirmation" component={RentalOrderConfirmation} options={{ headerShown: false }} />
         <Stack.Screen name="FindDoctor" component={FindDoctor} options={{ title: t('Find Doctors'), headerTitleAlign: 'center' }} />
         <Stack.Screen name="SelectClinic" component={SelectClinic} options={{ title: t('Select Clinic'), headerTitleAlign: 'center' }} />

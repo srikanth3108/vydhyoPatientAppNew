@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { RENTAL_CATEGORIES, RentalCategory } from '../../data/mockRentalCategories';
+import { getRentalCategories } from '../../services/rentalService';
+import { ActivityIndicator } from 'react-native';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import {
   verticalScale,
@@ -27,81 +28,86 @@ import { lang } from 'moment';
 
 type NavList = {
   RentalCategories: undefined;
-  RentalAgents: { categoryId: string };
+  RentalsCatalog: { categoryId: string; title?: string };
 };
 
 type Nav = StackNavigationProp<NavList, 'RentalCategories'>;
 
 const CategoryCard: React.FC<{
-  category: RentalCategory;
+  category: any;
   onPress: () => void;
 }> = ({ category, onPress }) => {
-
-
-  if (category.image) {
-    return (
-      <TouchableOpacity activeOpacity={0.92} style={styles.gridItem} onPress={onPress}>
-        <View style={styles.categoryCard}>
-          <ImageBackground
-            source={category.image}
-            style={styles.cardImage}
-            imageStyle={styles.cardImageRadius}
-          >
-            <View style={styles.cardImageOverlay}>
-              <View style={styles.cardTopRow}>
-                <View style={styles.emojiBadge}>
-                  <Text style={styles.emoji}>{category.emoji}</Text>
-                </View>
-                {/* <View style={styles.agentCountBadge}>
-                  <Text style={styles.agentCountText}>
-                    {category.agentCount} agents
-                  </Text>
-                </View> */}
-              </View>
-
-              <View style={styles.cardBottomContent}>
-                <Text style={styles.catTitle} numberOfLines={1}>
-                  {category.name}
-                </Text>
-                <Text style={styles.catTagline} numberOfLines={2}>
-                  {category.tagline}
-                </Text>
-                <View style={styles.exploreRow}>
-                  <Text style={styles.exploreText}>Explore →</Text>
-                </View>
+  return (
+    <TouchableOpacity activeOpacity={0.92} style={styles.gridItem} onPress={onPress}>
+      <View style={styles.categoryCard}>
+        <ImageBackground
+          source={category.imageUrl ? { uri: category.imageUrl } : require('../../assets/HomeServices.png')}
+          style={styles.cardImage}
+          imageStyle={styles.cardImageRadius}
+        >
+          <View style={styles.cardImageOverlay}>
+            <View style={styles.cardTopRow}>
+              <View style={styles.emojiBadge}>
+                <Text style={styles.emoji}>📦</Text>
               </View>
             </View>
-          </ImageBackground>
-        </View>
-      </TouchableOpacity>
-    );
-  }
 
-
+            <View style={styles.cardBottomContent}>
+              <Text style={styles.catTitle} numberOfLines={1}>
+                {category.name}
+              </Text>
+              <Text style={styles.catTagline} numberOfLines={2}>
+                {category.description || 'View rental items'}
+              </Text>
+              <View style={styles.exploreRow}>
+                <Text style={styles.exploreText}>Explore →</Text>
+              </View>
+            </View>
+          </View>
+        </ImageBackground>
+      </View>
+    </TouchableOpacity>
+  );
 };
 
 const RentalCategories: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Clear search query if needed
+  React.useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await getRentalCategories();
+        if (res?.data) {
+          setCategories(res.data);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const clearSearch = () => {
     setSearchQuery('');
   };
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
-    const filtered = RENTAL_CATEGORIES.filter(category =>
-      category.name.toLowerCase().includes(text.toLowerCase())
-    );
-    // setCategories(filtered);
-    
   };
 
-  const renderItem = ({ item }: { item: RentalCategory }) => (
+  const filteredCategories = categories.filter(category =>
+    category.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderItem = ({ item }: { item: any }) => (
     <CategoryCard
       category={item}
-      onPress={() => navigation.navigate('RentalAgents', { categoryId: item.id })}
+      onPress={() => navigation.navigate('RentalsCatalog', { categoryId: item.categoryId, title: item.name })}
     />
   );
 
@@ -148,21 +154,32 @@ const RentalCategories: React.FC = () => {
         )}
       </View>
       {/* Category Grid */}
-      <FlatList
-        data={RENTAL_CATEGORIES}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.columnWrapper}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: SAFE_AREA.safeBottom + 20 },
-        ]}
-        ListHeaderComponent={
-          <Text style={styles.sectionTitle}>Choose a category</Text>
-        }
-        renderItem={renderItem}
-      />
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={HS_COLORS.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredCategories}
+          keyExtractor={item => item.categoryId || item._id}
+          numColumns={2}
+          columnWrapperStyle={styles.columnWrapper}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: SAFE_AREA.safeBottom + 20 },
+          ]}
+          ListHeaderComponent={
+            <Text style={styles.sectionTitle}>Choose a category</Text>
+          }
+          renderItem={renderItem}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', padding: SPACING.xl }}>
+              <Text style={{ color: '#64748B' }}>No categories found.</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 };

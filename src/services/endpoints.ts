@@ -92,8 +92,21 @@ export const ENDPOINTS = {
   // DELETE_FAMILY_MEMBER: (familyMemberId: string) => `family-member/deleteFamilyMember/${familyMemberId}`,
 
   // Rental Endpoints
-  GET_RENTAL_PRODUCTS: 'rental/patient/rentals/products',
+  GET_RENTAL_CATEGORIES: 'rental/patient/rentals/categories',
+  GET_RENTAL_PRODUCTS: (categoryId?: string, search?: string) => {
+    let url = 'rental/patient/rentals/products';
+    const params = new URLSearchParams();
+    if (categoryId) params.append('categoryId', categoryId);
+    if (search) params.append('search', search);
+    const queryString = params.toString();
+    return queryString ? `${url}?${queryString}` : url;
+  },
   GET_RENTAL_PRODUCT_DETAILS: (productId: string) => `rental/patient/rentals/products/${productId}`,
   CALCULATE_RENTAL_PRICE: 'rental/patient/rentals/price-calculator',
   PLACE_RENTAL_ORDER: 'rental/patient/rentals/orders',
+  GET_PATIENT_ORDERS: (userId: string) => `rental/patient/rentals/orders?userid=${userId}`,
+  CANCEL_RENTAL_ORDER: (orderId: string) => `rental/patient/rentals/orders/${orderId}/cancel`,
+  SCHEDULE_RENTAL_RETURN: (orderId: string) => `rental/patient/rentals/orders/${orderId}/return-pickup`,
+  GET_RENTAL_ORDER_TRACKING: (orderId: string) => `rental/patient/rentals/orders/${orderId}/tracking`,
+  VERIFY_RENTAL_PAYMENT: 'rental/patient/rentals/verify-payment',
 };

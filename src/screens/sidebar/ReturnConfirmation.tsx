@@ -10,7 +10,6 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import moment from 'moment';
-import { getOrderById } from '../../data/mockOrders';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SPACING, moderateScale } from '../../utils/responsive';
 
@@ -28,8 +27,6 @@ const ReturnConfirmation: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
-  const order = getOrderById(route.params.orderId);
-  const pickup = order?.rental?.returnPickup;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + SPACING.lg }]}>
@@ -42,16 +39,7 @@ const ReturnConfirmation: React.FC = () => {
           sanitized.
         </Text>
 
-        {pickup && (
-          <View style={styles.pickupBox}>
-            <Text style={styles.pickupLabel}>Pickup details</Text>
-            <Text style={styles.pickupValue}>
-              {moment(pickup.date).format('dddd, DD MMM YYYY')}
-            </Text>
-            <Text style={styles.pickupSlot}>{pickup.timeSlot}</Text>
-            <Text style={styles.pickupAddr}>📍 {order?.addressShort}</Text>
-          </View>
-        )}
+
 
         <TouchableOpacity
           style={styles.primary}

@@ -12,11 +12,7 @@ import {
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  cancelOrder,
-  canCancelOrder,
-  getOrderById,
-} from '../../data/mockOrders';
+import { cancelRentalOrder } from '../../services/rentalService';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SAFE_AREA, SPACING, moderateScale, isTablet } from '../../utils/responsive';
 
@@ -42,28 +38,14 @@ const CancelOrder: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
-  const order = getOrderById(route.params.orderId);
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  if (!order) {
-    return (
-      <View style={styles.center}>
-        <Text>Order not found</Text>
-      </View>
-    );
-  }
 
   const handleConfirm = () => {
     if (!selected) {
       Alert.alert('Select a reason', 'Please tell us why you want to cancel.');
       return;
     }
-    if (!canCancelOrder(order)) {
-      Alert.alert('Cannot cancel', 'This order can no longer be cancelled.');
-      return;
-    }
-
     Alert.alert(
       'Cancel this order?',
       'Your delivery will be stopped. Refund (if any) will be processed in 3–5 business days.',
@@ -72,13 +54,17 @@ const CancelOrder: React.FC = () => {
         {
           text: 'Yes, cancel',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             setSubmitting(true);
-            setTimeout(() => {
-              cancelOrder(order.id, selected);
-              setSubmitting(false);
+            try {
+              await cancelRentalOrder(route.params.orderId, { reason: selected, customText: '' });
               navigation.navigate('MyOrders');
-            }, 800);
+            } catch (error) {
+              console.error(error);
+              Alert.alert('Error', 'Could not cancel the order at this time.');
+            } finally {
+              setSubmitting(false);
+            }
           },
         },
       ],
@@ -107,7 +93,7 @@ const CancelOrder: React.FC = () => {
           <Text style={styles.warnIcon}>⚠️</Text>
           <Text style={styles.warnTitle}>Cancel before delivery</Text>
           <Text style={styles.warnSub}>
-            Order {order.id} · {order.items[0]?.name}
+            Order {route.params.orderId}
           </Text>
           <Text style={styles.warnHint}>
             You can only cancel while the item has not been delivered yet.

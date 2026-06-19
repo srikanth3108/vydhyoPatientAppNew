@@ -10,7 +10,7 @@ export type RootStackParamList = {
   SelectIssue: undefined;
   HomeServices: undefined;
   RentalCategories: undefined;
-  RentalAgents: { categoryId: string };
+  // RentalAgents: { categoryId: string };
   RentalsCatalog: { categoryId?: string; agentId?: string } | undefined;
   RentalProductDetails: { productId: string };
   RentalAddress: {
@@ -36,6 +36,15 @@ export type RootStackParamList = {
   };
   RentalOrderConfirmation: { orderId: string };
   MyOrders: undefined;
+  RentalPaymentGateway: {
+    payment_session_id: string;
+    order_id: string;
+    productId: string;
+    billingUnit: string;
+    quantity: number;
+    baseAmount: number;
+    address: any;
+  };
   OrderTracking: { orderId: string };
   CancelOrder: { orderId: string };
   ScheduleReturn: { orderId: string };

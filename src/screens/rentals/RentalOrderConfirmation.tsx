@@ -35,9 +35,7 @@ const RentalOrderConfirmation: React.FC = () => {
           <Text style={styles.orderValue}>{route.params.orderId}</Text>
         </View>
 
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>ℹ️ This is mock checkout. Replace with your real payment/order API later.</Text>
-        </View>
+
 
         <TouchableOpacity
           style={styles.primary}
@@ -78,8 +76,7 @@ const styles = StyleSheet.create({
   orderBox: { marginTop: SPACING.md, backgroundColor: '#EFF6FF', borderRadius: LAYOUT.borderRadius.lg, padding: SPACING.md, borderWidth: 1, borderColor: '#DBEAFE' },
   orderLabel: { fontSize: moderateScale(11), color: '#1E40AF', fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.6 },
   orderValue: { marginTop: 4, fontSize: moderateScale(16), color: HS_COLORS.primary, fontWeight: '900' },
-  infoBox: { marginTop: SPACING.md, backgroundColor: '#FEF9C3', borderRadius: LAYOUT.borderRadius.lg, padding: SPACING.md, borderWidth: 1, borderColor: '#FDE047' },
-  infoText: { fontSize: moderateScale(12), color: '#854D0E', fontWeight: '800', textAlign: 'center' },
+
   primary: { marginTop: SPACING.md, backgroundColor: HS_COLORS.primary, borderRadius: LAYOUT.borderRadius.md, paddingVertical: SPACING.sm, alignItems: 'center', minHeight: moderateScale(44), justifyContent: 'center' },
   primaryText: { color: '#FFF', fontSize: moderateScale(14), fontWeight: '900' },
   secondary: { marginTop: SPACING.sm, borderRadius: LAYOUT.borderRadius.md, paddingVertical: SPACING.sm, alignItems: 'center', minHeight: moderateScale(44), justifyContent: 'center', borderWidth: 2, borderColor: '#E2E8F0' },

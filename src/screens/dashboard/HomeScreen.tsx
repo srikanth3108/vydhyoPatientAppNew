@@ -52,7 +52,7 @@ type RootStackParamList = {
   Login: undefined;
   HomeServices: undefined;
   RentalCategories: undefined;
-  RentalAgents: { categoryId: string };
+  // RentalAgents: { categoryId: string };
   RentalsCatalog: { categoryId?: string; agentId?: string } | undefined;
   ReferAndEarn: undefined;
   DoctorDetails: undefined;

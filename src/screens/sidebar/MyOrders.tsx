@@ -11,14 +11,8 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  MockOrder,
-  canScheduleReturn,
-  getAllOrders,
-  isOrderActive,
-  isOrderCancelled,
-  isOrderCompleted,
-} from '../../data/mockOrders';
+import { getPatientOrders } from '../../services/rentalService';
+import { useSelector } from 'react-redux';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SAFE_AREA, SPACING, moderateScale, isTablet } from '../../utils/responsive';
 
@@ -30,52 +24,51 @@ type NavList = {
 
 type Nav = StackNavigationProp<NavList, 'MyOrders'>;
 
-type Filter = 'ACTIVE' | 'DELIVERED' | 'CANCELLED';
+type Filter = 'active' | 'completed' | 'cancelled';
 
-const statusColor = (status: MockOrder['status']) => {
-  if (status === 'RETURNED') return { bg: '#DCFCE7', fg: '#166534' };
-  if (status === 'CANCELLED') return { bg: '#FEE2E2', fg: '#991B1B' };
-  if (status === 'RETURN_DUE') return { bg: '#FEF3C7', fg: '#B45309' };
-  if (['RETURN_SCHEDULED', 'RETURN_PICKED'].includes(status))
+const statusColor = (status: string) => {
+  if (status === 'Returned') return { bg: '#DCFCE7', fg: '#166534' };
+  if (status === 'Cancelled') return { bg: '#FEE2E2', fg: '#991B1B' };
+  if (status === 'Return due') return { bg: '#FEF3C7', fg: '#B45309' };
+  if (['Return Scheduled', 'Return picked'].includes(status))
     return { bg: '#E0E7FF', fg: '#3730A3' };
-  if (status === 'IN_USE') return { bg: '#D1FAE5', fg: '#047857' };
+  if (['Delivered', 'In Use'].includes(status)) return { bg: '#D1FAE5', fg: '#047857' };
   return { bg: '#DBEAFE', fg: '#1E40AF' };
 };
 
 const OrderCard: React.FC<{
-  order: MockOrder;
+  order: any;
   onPress: () => void;
   onScheduleReturn?: () => void;
 }> = ({ order, onPress, onScheduleReturn }) => {
   const pill = statusColor(order.status);
-  const first = order.items[0];
-  const showReturnCta = canScheduleReturn(order);
+  const showReturnCta = order.status === 'Return due' || order.status === 'Delivered';
+
   return (
     <View style={styles.card}>
       <TouchableOpacity activeOpacity={0.92} onPress={onPress}>
         <View style={styles.row}>
-          <Image source={first.thumbnail} style={styles.thumb} />
+          <Image source={order.imageUrl ? { uri: order.imageUrl } : require('../../assets/HomeServices.png')} style={styles.thumb} />
           <View style={styles.cardBody}>
             <View style={styles.topRow}>
               <Text style={styles.orderId} numberOfLines={1}>
-                {order.id}
+                {order.orderId}
               </Text>
               <View style={[styles.statusPill, { backgroundColor: pill.bg }]}>
-                <Text style={[styles.statusText, { color: pill.fg }]}>{order.statusLabel}</Text>
+                <Text style={[styles.statusText, { color: pill.fg }]}>{order.status}</Text>
               </View>
             </View>
 
             <Text style={styles.itemName} numberOfLines={1}>
-              {first.name}
-              {order.items.length > 1 ? ` +${order.items.length - 1} more` : ''}
+              {order.productName}
             </Text>
 
             <Text style={styles.meta} numberOfLines={1}>
-              📍 {order.addressShort}
+              📍 {order.location}
             </Text>
 
             <View style={styles.bottomRow}>
-              <Text style={styles.total}>₹{order.totalAmount}</Text>
+              <Text style={styles.total}>₹{order.amount}</Text>
               <Text style={styles.eta} numberOfLines={1}>
                 {order.etaText || '—'}
               </Text>
@@ -87,7 +80,7 @@ const OrderCard: React.FC<{
       {showReturnCta && onScheduleReturn && (
         <TouchableOpacity style={styles.returnCta} onPress={onScheduleReturn}>
           <Text style={styles.returnCtaText}>
-            {order.status === 'RETURN_DUE' ? 'Schedule return pickup' : 'Plan return pickup'}
+            {order.status === 'Return due' ? 'Schedule return pickup' : 'Plan return pickup'}
           </Text>
         </TouchableOpacity>
       )}
@@ -98,19 +91,30 @@ const OrderCard: React.FC<{
 const MyOrders: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<Filter>('ACTIVE');
-  const [orders, setOrders] = useState(getAllOrders);
+  const [filter, setFilter] = useState<Filter>('active');
+  const [orders, setOrders] = useState<any[]>([]);
+  const patientId = useSelector((state: any) => state.auth?.user?.id) || 'VYDUSER1001';
 
   useFocusEffect(
     useCallback(() => {
-      setOrders(getAllOrders());
-    }, []),
+      const fetchOrders = async () => {
+        try {
+          const res = await getPatientOrders(patientId);
+          if (res?.data) {
+            setOrders(res.data);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      };
+      fetchOrders();
+    }, [patientId]),
   );
 
   const list = useMemo(() => {
-    if (filter === 'DELIVERED') return orders.filter(isOrderCompleted);
-    if (filter === 'CANCELLED') return orders.filter(isOrderCancelled);
-    return orders.filter(o => isOrderActive(o) && !isOrderCancelled(o));
+    if (filter === 'completed') return orders.filter(o => o.status === 'Returned');
+    if (filter === 'cancelled') return orders.filter(o => o.status === 'Cancelled');
+    return orders.filter(o => o.status !== 'Returned' && o.status !== 'Cancelled');
   }, [filter, orders]);
 
   return (
@@ -138,9 +142,9 @@ const MyOrders: React.FC = () => {
         {/* Filters sit inside hero with clear spacing — no negative margin */}
         <View style={styles.filters}>
           {([
-            { id: 'ACTIVE', label: 'Active' },
-            { id: 'DELIVERED', label: 'Completed' },
-            { id: 'CANCELLED', label: 'Cancelled' },
+            { id: 'active', label: 'Active' },
+            { id: 'completed', label: 'Completed' },
+            { id: 'cancelled', label: 'Cancelled' },
           ] as const).map(f => (
             <TouchableOpacity
               key={f.id}
@@ -164,11 +168,11 @@ const MyOrders: React.FC = () => {
       >
         {list.map(order => (
           <OrderCard
-            key={order.id}
+            key={order.orderId}
             order={order}
-            onPress={() => navigation.navigate('OrderTracking', { orderId: order.id })}
+            onPress={() => navigation.navigate('OrderTracking', { orderId: order.orderId })}
             onScheduleReturn={() =>
-              navigation.navigate('ScheduleReturn', { orderId: order.id })
+              navigation.navigate('ScheduleReturn', { orderId: order.orderId })
             }
           />
         ))}

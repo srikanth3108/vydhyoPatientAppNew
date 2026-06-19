@@ -13,12 +13,8 @@ import moment from 'moment';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  canScheduleReturn,
-  formatRentalPeriod,
-  getOrderById,
-  scheduleReturn,
-} from '../../data/mockOrders';
+import { getRentalOrderTracking, scheduleRentalReturn } from '../../services/rentalService';
+import { ActivityIndicator } from 'react-native';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SAFE_AREA, SPACING, moderateScale } from '../../utils/responsive';
 
@@ -43,7 +39,24 @@ const ScheduleReturn: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const insets = useSafeAreaInsets();
-  const order = getOrderById(route.params.orderId);
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchOrder = async () => {
+      try {
+        const res = await getRentalOrderTracking(route.params.orderId);
+        if (res?.data) {
+          setOrder(res.data);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrder();
+  }, [route.params.orderId]);
 
   const quickDates = useMemo(() => {
     return [0, 1, 2].map(offset => {
@@ -56,7 +69,15 @@ const ScheduleReturn: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!order || !order.rental) {
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={HS_COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (!order) {
     return (
       <View style={styles.center}>
         <Text>Order not found</Text>
@@ -69,17 +90,28 @@ const ScheduleReturn: React.FC = () => {
       Alert.alert('Select a time slot', 'Choose when we should pick up the rented item.');
       return;
     }
-    if (!canScheduleReturn(order)) {
+    if (order.status === 'Return Scheduled' || order.status === 'Return picked' || order.status === 'Returned') {
       Alert.alert('Already scheduled', 'Return pickup is already booked for this order.');
       return;
     }
 
-    setSubmitting(true);
-    setTimeout(() => {
-      scheduleReturn(order.id, { date: selectedDate, timeSlot: selectedSlot });
-      setSubmitting(false);
-      navigation.replace('ReturnConfirmation', { orderId: order.id });
-    }, 900);
+    const submit = async () => {
+      setSubmitting(true);
+      try {
+        const dateTimeStr = `${selectedDate}T00:00:00Z`;
+        await scheduleRentalReturn(route.params.orderId, {
+          pickupDate: dateTimeStr,
+          pickupTimeSlot: selectedSlot
+        });
+        navigation.replace('ReturnConfirmation', { orderId: route.params.orderId });
+      } catch (error) {
+        console.error(error);
+        Alert.alert('Error', 'Could not schedule return at this time.');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+    submit();
   };
 
   return (
@@ -103,12 +135,12 @@ const ScheduleReturn: React.FC = () => {
         <View style={styles.infoCard}>
           <Text style={styles.infoEmoji}>📦</Text>
           <Text style={styles.infoTitle}>Send item back after rental</Text>
-          <Text style={styles.infoProduct}>{order.items[0]?.name}</Text>
-          <Text style={styles.infoPeriod}>{formatRentalPeriod(order)}</Text>
-          <Text style={styles.infoAddr}>Pickup from: {order.addressShort}</Text>
+          <Text style={styles.infoProduct}>{order.item?.name}</Text>
+          <Text style={styles.infoPeriod}>{order.rentalPeriod}</Text>
+          <Text style={styles.infoAddr}>Pickup from: {order.item?.location}</Text>
           <View style={styles.depositBox}>
             <Text style={styles.depositText}>
-              Refundable deposit: ₹{order.rental.deposit} (after quality check)
+              Total Amount: ₹{order.item?.price}
             </Text>
           </View>
         </View>

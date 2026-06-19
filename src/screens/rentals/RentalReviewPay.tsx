@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { placeRentalOrder, getRentalProductById } from '../../services/rentalService';
+import { extractPaymentSessionFromResponse } from '../../services/homeCareService';
+import Toast from 'react-native-toast-message';
 import { useSelector } from 'react-redux';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SPACING, moderateScale, SAFE_AREA, isTablet } from '../../utils/responsive';
@@ -138,16 +140,51 @@ const RentalReviewPay: React.FC = () => {
           platformFee: platformFee,
           totalPayable: total,
           currency: 'INR'
-        }
+        },
+        paymentMethod: method,
       };
 
       const response = await placeRentalOrder(orderData);
       
-      // Navigate to order confirmation, passing the order ID from response or generating a fallback
-      const orderId = response?.data?.orderId || `ORD-RNT-${Date.now().toString().slice(-6)}`;
-      navigation.replace('RentalOrderConfirmation', { orderId });
-    } catch (error) {
-      Alert.alert('Payment Error', 'Failed to place rental order. Please try again.');
+      const paymentSessionData = extractPaymentSessionFromResponse(response);
+      if (paymentSessionData) {
+        navigation.replace('RentalPaymentGateway', {
+          payment_session_id: paymentSessionData.payment_session_id,
+          order_id: paymentSessionData.order_id,
+          productId,
+          billingUnit,
+          quantity,
+          baseAmount,
+          address,
+        });
+      } else {
+        // Fallback or full discount
+        const orderId = response?.data?.orderId || `ORD-RNT-${Date.now().toString().slice(-6)}`;
+        navigation.replace('RentalOrderConfirmation', { orderId });
+      }
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to place rental order.';
+      
+      // Developer bypass: If backend fails due to Cashfree keys missing, allow bypassing for testing
+      if (msg.includes('gateway') || msg.includes('Payment gateway')) {
+        Alert.alert(
+          'Backend Payment Error',
+          'The server failed to initialize the payment gateway. Would you like to bypass payment to test the rest of the flow?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Bypass (Test)', 
+              style: 'default',
+              onPress: () => {
+                const orderId = `ORD-TEST-${Date.now().toString().slice(-6)}`;
+                navigation.replace('RentalOrderConfirmation', { orderId });
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Payment Error', msg);
+      }
       console.error(error);
     } finally {
       setPaying(false);
@@ -160,7 +197,7 @@ const RentalReviewPay: React.FC = () => {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.banner}>
           <Text style={styles.bannerTitle}>Review your rental</Text>
-          <Text style={styles.bannerSub}>Mock checkout — no real payment will be processed.</Text>
+          <Text style={styles.bannerSub}>Review your order details below.</Text>
         </View>
 
         <Section title="Product" icon="🧰">

@@ -13,7 +13,6 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { getRentalProducts } from '../../services/rentalService';
 import { ActivityIndicator } from 'react-native';
-import { getAgentById, getCategoryById } from '../../data/mockRentalCategories';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SPACING, moderateScale, SAFE_AREA, isTablet } from '../../utils/responsive';
 
@@ -74,10 +73,8 @@ const ProductCard: React.FC<{
 const RentalsCatalog: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteParams>();
-  const { categoryId, agentId } = route.params || {};
-
-  const agent = useMemo(() => (agentId ? getAgentById(agentId) : null), [agentId]);
-  const category = useMemo(() => (categoryId ? getCategoryById(categoryId) : null), [categoryId]);
+  const categoryId = route.params?.categoryId;
+  const agentId = route.params?.agentId;
 
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState<any[]>([]);
@@ -85,47 +82,34 @@ const RentalsCatalog: React.FC = () => {
 
   React.useEffect(() => {
     const fetchProducts = async () => {
+      setLoading(true);
       try {
-        const res = await getRentalProducts();
+        const res = await getRentalProducts(categoryId, query.trim());
         if (res?.data) {
           setProducts(res.data);
+        } else {
+          setProducts([]);
         }
       } catch (error) {
         console.error(error);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchProducts();
-  }, []);
+    // Debounce the search query slightly
+    const timeoutId = setTimeout(() => {
+      fetchProducts();
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [categoryId, query]);
 
-  const items = useMemo(() => {
-    let filtered = products;
-
-    if (agent) {
-      if (agent.productIds && agent.productIds.length > 0) {
-        filtered = filtered.filter((p: any) => agent.productIds.includes(p.productId));
-      } else if (categoryId) {
-        filtered = filtered.filter(p => p.categoryId === categoryId);
-      }
-    } else if (categoryId) {
-      filtered = filtered.filter(p => p.categoryId === categoryId);
-    }
-
-    const q = query.trim().toLowerCase();
-    if (!q) return filtered;
-    return filtered.filter((p: any) => {
-      return (
-        p.name?.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q)
-      );
-    });
-  }, [query, categoryId, agentId, agent, products]);
+  const items = products;
 
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor={HS_COLORS.primary} />
-      <View style={styles.hero}>
+      {/* <View style={styles.hero}>
         <Text style={styles.heroTitle}>
           {agent ? agent.name : category ? category.name : 'Rent Homecare Products'}
         </Text>
@@ -145,7 +129,7 @@ const RentalsCatalog: React.FC = () => {
             onChangeText={setQuery}
           />
         </View>
-      </View>
+      </View> */}
 
       <ScrollView
         showsVerticalScrollIndicator={false}

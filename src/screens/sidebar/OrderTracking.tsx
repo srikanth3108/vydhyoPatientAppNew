@@ -13,13 +13,8 @@ import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navig
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import moment from 'moment';
-import {
-  canCancelOrder,
-  canScheduleReturn,
-  formatRentalPeriod,
-  getOrderById,
-  getRentalDaysRemaining,
-} from '../../data/mockOrders';
+import { getRentalOrderTracking } from '../../services/rentalService';
+import { ActivityIndicator } from 'react-native';
 import { HS_COLORS } from '../homeservices/homeServiceTheme';
 import { LAYOUT, SAFE_AREA, SPACING, moderateScale, isTablet } from '../../utils/responsive';
 
@@ -44,37 +39,56 @@ const OrderTracking: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Rt>();
   const insets = useSafeAreaInsets();
-  const [order, setOrder] = useState(() => getOrderById(route.params.orderId));
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
-      setOrder(getOrderById(route.params.orderId));
+      const fetchTracking = async () => {
+        try {
+          const res = await getRentalOrderTracking(route.params.orderId);
+          if (res?.data) {
+            setOrder(res.data);
+          }
+        } catch (error) {
+          console.error(error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchTracking();
     }, [route.params.orderId]),
   );
 
   const isReturnPhase = useMemo(
     () =>
       order
-        ? ['RETURN_SCHEDULED', 'RETURN_PICKED', 'RETURNED'].includes(order.status) ||
-          !!order.returnTracking?.length
+        ? ['Return Scheduled', 'Return picked', 'Returned', 'Return due'].includes(order.status)
         : false,
     [order],
   );
 
   const timelineEvents = useMemo(() => {
-    if (!order) return [];
-    if (isReturnPhase && order.returnTracking?.length) return order.returnTracking;
-    return order.tracking;
-  }, [order, isReturnPhase]);
+    if (!order || !order.updates) return [];
+    return order.updates;
+  }, [order]);
 
   const currentIndex = useMemo(() => {
     if (!timelineEvents.length) return 0;
     let idx = -1;
-    timelineEvents.forEach((e, i) => {
-      if (e.done) idx = i;
+    timelineEvents.forEach((e: any, i: number) => {
+      if (e.isCompleted) idx = i;
     });
     return Math.max(idx, 0);
   }, [timelineEvents]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={HS_COLORS.primary} />
+      </View>
+    );
+  }
 
   if (!order) {
     return (
@@ -84,11 +98,9 @@ const OrderTracking: React.FC = () => {
     );
   }
 
-  const first = order.items[0];
-  const showCancel = canCancelOrder(order);
-  const showScheduleReturn = canScheduleReturn(order);
-  const daysLeft = getRentalDaysRemaining(order);
-  const isReturnDue = order.status === 'RETURN_DUE';
+  const showCancel = order.status === 'Order placed' || order.status === 'Confirmed' || order.status === 'Packed & Ready';
+  const showScheduleReturn = order.status === 'Return due' || order.status === 'Delivered';
+  const isReturnDue = order.status === 'Return due';
 
   return (
     <View style={styles.screen}>
@@ -107,7 +119,7 @@ const OrderTracking: React.FC = () => {
             {isReturnPhase ? 'Return tracking' : 'Live tracking'}
           </Text>
           <Text style={styles.sub} numberOfLines={1}>
-            {order.id} · {order.statusLabel}
+            {order.orderId} · {order.status}
           </Text>
         </View>
       </View>
@@ -124,7 +136,7 @@ const OrderTracking: React.FC = () => {
           },
         ]}
       >
-        {order.type === 'rental' && order.rental && (
+        {order.rentalPeriod && (
           <View
             style={[
               styles.rentalCard,
@@ -132,25 +144,7 @@ const OrderTracking: React.FC = () => {
             ]}
           >
             <Text style={styles.rentalLabel}>Rental period</Text>
-            <Text style={styles.rentalPeriod}>{formatRentalPeriod(order)}</Text>
-            {order.status === 'IN_USE' && daysLeft !== null && (
-              <Text style={styles.rentalDays}>
-                {daysLeft > 0
-                  ? `${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`
-                  : 'Rental ends today — schedule return'}
-              </Text>
-            )}
-            {order.rental.returnPickup && (
-              <View style={styles.pickupScheduled}>
-                <Text style={styles.pickupScheduledText}>
-                  Pickup: {moment(order.rental.returnPickup.date).format('DD MMM')} ·{' '}
-                  {order.rental.returnPickup.timeSlot}
-                </Text>
-              </View>
-            )}
-            {order.cancellationReason && (
-              <Text style={styles.cancelReason}>Cancelled: {order.cancellationReason}</Text>
-            )}
+            <Text style={styles.rentalPeriod}>{order.rentalPeriod}</Text>
           </View>
         )}
 
@@ -160,7 +154,7 @@ const OrderTracking: React.FC = () => {
               <Text style={styles.mapTitle}>Delivery route</Text>
               <View style={styles.etaPill}>
                 <Text style={styles.etaText} numberOfLines={1}>
-                  {order.etaText || 'Updating ETA...'}
+                  {order.deliveryRoute?.eta || 'Updating ETA...'}
                 </Text>
               </View>
             </View>
@@ -170,25 +164,7 @@ const OrderTracking: React.FC = () => {
                 Replace with Google Maps + real-time driver location later.
               </Text>
             </View>
-            {order.rider && (
-              <View style={styles.riderRow}>
-                <View style={styles.riderAvatar}>
-                  <Text style={styles.riderAvatarText}>{order.rider.name.charAt(0)}</Text>
-                </View>
-                <View style={styles.riderInfo}>
-                  <Text style={styles.riderName} numberOfLines={1}>
-                    {order.rider.name}
-                  </Text>
-                  <Text style={styles.riderMeta} numberOfLines={1}>
-                    ⭐ {order.rider.rating} · {order.rider.vehicle}
-                  </Text>
-                  <Text style={styles.riderPhone}>{order.rider.phoneMasked}</Text>
-                </View>
-                <TouchableOpacity style={styles.callBtn}>
-                  <Text style={styles.callBtnText}>Call</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+
           </View>
         )}
 
@@ -205,19 +181,19 @@ const OrderTracking: React.FC = () => {
 
         <View style={styles.orderCard}>
           <View style={styles.orderRow}>
-            <Image source={first.thumbnail} style={styles.thumb} />
+            <Image source={require('../../assets/HomeServices.png')} style={styles.thumb} />
             <View style={styles.orderInfo}>
               <Text style={styles.itemName} numberOfLines={2}>
-                {first.name}
+                {order.item?.name}
               </Text>
               <Text style={styles.meta}>
-                {order.type === 'rental' ? 'Homecare rental' : 'Home service'}
+                {order.item?.category || 'Homecare rental'}
               </Text>
               <Text style={styles.meta} numberOfLines={1}>
-                📍 {order.addressShort}
+                📍 {order.item?.location}
               </Text>
             </View>
-            <Text style={styles.amount}>₹{order.totalAmount}</Text>
+            <Text style={styles.amount}>₹{order.item?.price}</Text>
           </View>
         </View>
 
@@ -225,13 +201,13 @@ const OrderTracking: React.FC = () => {
           {isReturnPhase ? 'Return updates' : 'Delivery updates'}
         </Text>
         <View style={styles.timeline}>
-          {timelineEvents.map((ev, idx) => {
+          {timelineEvents.map((ev: any, idx: number) => {
             const active = idx === currentIndex;
-            const done = ev.done;
+            const done = ev.isCompleted;
             const isLast = idx === timelineEvents.length - 1;
             return (
               <View
-                key={ev.id}
+                key={idx.toString()}
                 style={[styles.eventRow, isLast && styles.eventRowLast]}
               >
                 <View style={styles.dotCol}>
@@ -246,25 +222,27 @@ const OrderTracking: React.FC = () => {
                 </View>
                 <View style={styles.eventContent}>
                   <Text style={[styles.evTitle, active && styles.evTitleActive]}>
-                    {ev.title}
+                    {ev.status}
                   </Text>
                   {!!ev.description && (
                     <Text style={styles.evDesc}>{ev.description}</Text>
                   )}
-                  <Text style={styles.evTime}>{formatTrackingTime(ev.time)}</Text>
+                  {!!ev.timestamp && (
+                    <Text style={styles.evTime}>{formatTrackingTime(ev.timestamp)}</Text>
+                  )}
                 </View>
               </View>
             );
           })}
         </View>
 
-        {order.status === 'CANCELLED' && (
+        {order.status === 'Cancelled' && (
           <View style={styles.cancelledBanner}>
             <Text style={styles.cancelledText}>This order was cancelled.</Text>
           </View>
         )}
 
-        {order.status === 'RETURNED' && (
+        {order.status === 'Returned' && (
           <View style={styles.completedBanner}>
             <Text style={styles.completedText}>
               Return complete. Deposit refund in 3–5 business days.
@@ -288,7 +266,7 @@ const OrderTracking: React.FC = () => {
           {showScheduleReturn && (
             <TouchableOpacity
               style={styles.scheduleBtn}
-              onPress={() => navigation.navigate('ScheduleReturn', { orderId: order.id })}
+              onPress={() => navigation.navigate('ScheduleReturn', { orderId: order.orderId })}
             >
               <Text style={styles.scheduleBtnText}>
                 {isReturnDue ? 'Schedule return pickup now' : 'Schedule return pickup'}
@@ -298,7 +276,7 @@ const OrderTracking: React.FC = () => {
           {showCancel && (
             <TouchableOpacity
               style={styles.cancelOrderBtn}
-              onPress={() => navigation.navigate('CancelOrder', { orderId: order.id })}
+              onPress={() => navigation.navigate('CancelOrder', { orderId: order.orderId })}
             >
               <Text style={styles.cancelOrderBtnText}>Cancel delivery</Text>
             </TouchableOpacity>
