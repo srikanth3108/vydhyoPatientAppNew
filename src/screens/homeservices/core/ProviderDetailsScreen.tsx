@@ -374,7 +374,7 @@ const ProviderDetailsScreen: React.FC = () => {
           </View>
         </View>
 
-        {!!(provider.documents && provider.documents.length > 0) && (
+        {/* {!!(provider.documents && provider.documents.length > 0) && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitlePremium}>Documents</Text>
             {provider.documents.map((doc, idx) => (
@@ -384,7 +384,7 @@ const ProviderDetailsScreen: React.FC = () => {
               </View>
             ))}
           </View>
-        )}
+        )} */}
 
         {!!(provider.gender ||
           provider.dateOfBirth ||

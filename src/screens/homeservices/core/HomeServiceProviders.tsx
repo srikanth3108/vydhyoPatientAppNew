@@ -15,8 +15,9 @@ import { useSelector } from 'react-redux';
 import { getProvidersByRole, HomeCareProvider } from '../../../services/homeCareService';
 import { HS_COLORS, hsStyles } from '../homeServiceTheme';
 import { SPACING, moderateScale, LAYOUT } from '../../../utils/responsive';
+import { ProviderFilters } from './HomeServices';
 
-type Params = { role: string };
+type Params = { role: string; filters?: ProviderFilters };
 type NavList = {
   HomeServiceProviders: Params;
   ProviderDetails: { providerId: string; role: string };
@@ -94,7 +95,7 @@ const ProviderCard: React.FC<{
             )}
             {provider.experienceYears > 0 && (
               <Text style={hsStyles.muted}>
-                📍 {provider.location} · {provider.experienceYears}+ yrs exp
+                📍 {provider?.distance}.{provider?.location} · {provider?.experienceYears}+ yrs exp
               </Text>
             )}
             {provider.specialties.length > 0 && (
@@ -126,7 +127,7 @@ const HomeServiceProviders: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const user = useSelector((state: any) => state.currentUser);
-  const { role } = route.params;
+  const { role, filters } = route.params;
   const [apiProviders, setApiProviders] = useState<HomeCareProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +158,24 @@ const HomeServiceProviders: React.FC = () => {
   }, [role, user?.token]);
 
   const providers = useMemo(() => {
-    const list = apiProviders.map(transformProvider);
+    let list = apiProviders.map(transformProvider);
+    
+    // Apply filters if provided
+    if (filters) {
+      if (filters.gender && filters.gender !== 'Any') {
+        list = list.filter(p => p.gender?.toLowerCase() === filters.gender.toLowerCase());
+      }
+      if (filters.minRating > 0) {
+        list = list.filter(p => p.rating >= filters.minRating);
+      }
+      if (filters.minExperience > 0) {
+        list = list.filter(p => p.experienceYears >= filters.minExperience);
+      }
+      if (filters.verifiedOnly) {
+        list = list.filter(p => p.verified);
+      }
+    }
+
     const q = query.trim().toLowerCase();
     if (!q) return list;
     return list.filter(
@@ -166,7 +184,7 @@ const HomeServiceProviders: React.FC = () => {
         p.businessName.toLowerCase().includes(q) ||
         p.location.toLowerCase().includes(q),
     );
-  }, [apiProviders, query]);
+  }, [apiProviders, query, filters]);
 
   if (loading) {
     return (
@@ -209,6 +227,9 @@ const HomeServiceProviders: React.FC = () => {
 
         <Text style={hsStyles.sectionTitle}>
           {providers.length} professional{providers.length !== 1 ? 's' : ''} available
+          {filters && (filters.gender !== 'Any' || filters.minRating > 0 || filters.minExperience > 0 || filters.verifiedOnly) 
+            ? ' (Filtered)' 
+            : ''}
         </Text>
         {providers.map(p => (
           <ProviderCard

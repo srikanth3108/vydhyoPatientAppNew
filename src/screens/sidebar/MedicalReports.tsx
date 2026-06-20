@@ -24,7 +24,7 @@ import RNFS from 'react-native-fs';
 import WebView from 'react-native-webview';
 import { RootStackParamList } from '../../navigation/navigationTypes';
 import { authDelete, AuthFetch, UploadFiles } from '../../services';
-import { pick } from 'react-native-document-picker';
+import { pick, types } from 'react-native-document-picker';
 
 // ─── i18n ───────────────────────────────────────────────────────────────────
 type Lang = 'en' | 'hi' | 'tel';

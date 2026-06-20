@@ -10,6 +10,7 @@ import {
   FlatList,
   ActivityIndicator,
   TextInput,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -25,9 +26,16 @@ import {
   isTablet,
 } from '../../../utils/responsive';
 
+export type ProviderFilters = {
+  gender: 'Any' | 'Male' | 'Female';
+  minRating: number;
+  minExperience: number;
+  verifiedOnly: boolean;
+};
+
 type RootStackParamList = {
   HomeServices: undefined;
-  HomeServiceProviders: { role: string };
+  HomeServiceProviders: { role: string; filters?: ProviderFilters };
 };
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -63,6 +71,13 @@ const HomeServices: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filters, setFilters] = useState<ProviderFilters>({
+    gender: 'Any',
+    minRating: 0,
+    minExperience: 0,
+    verifiedOnly: false,
+  });
 
   const filteredRoles = roles.filter(role => 
     role.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -101,6 +116,7 @@ const HomeServices: React.FC = () => {
       onPress={() =>
         navigation.navigate('HomeServiceProviders', {
           role: role,
+          filters: filters,
         })
       }
     >
@@ -215,7 +231,7 @@ const HomeServices: React.FC = () => {
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                 />
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowFilterModal(true)}>
                   <Text style={styles.filterIcon}>⚙️</Text>
                 </TouchableOpacity>
               </View>
@@ -228,6 +244,92 @@ const HomeServices: React.FC = () => {
           renderItem={renderitems}
         />
       )}
+
+      {/* Filter Modal */}
+      <Modal visible={showFilterModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filter Providers</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+                <Text style={styles.closeIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.filterSectionTitle}>Gender</Text>
+            <View style={styles.filterRow}>
+              {['Any', 'Male', 'Female'].map(g => (
+                <TouchableOpacity
+                  key={g}
+                  style={[styles.filterChip, filters.gender === g && styles.filterChipActive]}
+                  onPress={() => setFilters({ ...filters, gender: g as any })}
+                >
+                  <Text style={[styles.filterChipText, filters.gender === g && styles.filterChipTextActive]}>{g}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.filterSectionTitle}>Minimum Rating</Text>
+            <View style={styles.filterRow}>
+              {[0, 3.5, 4.0, 4.5].map(r => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.filterChip, filters.minRating === r && styles.filterChipActive]}
+                  onPress={() => setFilters({ ...filters, minRating: r })}
+                >
+                  <Text style={[styles.filterChipText, filters.minRating === r && styles.filterChipTextActive]}>
+                    {r === 0 ? 'Any' : `${r}★ & up`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.filterSectionTitle}>Minimum Experience</Text>
+            <View style={styles.filterRow}>
+              {[0, 3, 5, 10].map(e => (
+                <TouchableOpacity
+                  key={e}
+                  style={[styles.filterChip, filters.minExperience === e && styles.filterChipActive]}
+                  onPress={() => setFilters({ ...filters, minExperience: e })}
+                >
+                  <Text style={[styles.filterChipText, filters.minExperience === e && styles.filterChipTextActive]}>
+                    {e === 0 ? 'Any' : `${e}+ Years`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.filterSectionDivider} />
+
+            <TouchableOpacity 
+              style={styles.verifyToggle}
+              activeOpacity={0.7}
+              onPress={() => setFilters({ ...filters, verifiedOnly: !filters.verifiedOnly })}
+            >
+              <Text style={styles.filterSectionTitle}>Verified Providers Only</Text>
+              <View style={[styles.checkbox, filters.verifiedOnly && styles.checkboxActive]}>
+                {filters.verifiedOnly && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={styles.resetBtn}
+                onPress={() => setFilters({ gender: 'Any', minRating: 0, minExperience: 0, verifiedOnly: false })}
+              >
+                <Text style={styles.resetBtnText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.applyBtn}
+                onPress={() => setShowFilterModal(false)}
+              >
+                <Text style={styles.applyBtnText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -436,6 +538,125 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: moderateScale(12),
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: LAYOUT.borderRadius.xl,
+    borderTopRightRadius: LAYOUT.borderRadius.xl,
+    padding: SPACING.lg,
+    paddingBottom: SAFE_AREA.safeBottom + SPACING.md,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  modalTitle: {
+    fontSize: moderateScale(18),
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  closeIcon: {
+    fontSize: moderateScale(20),
+    color: '#64748B',
+    padding: SPACING.xs,
+  },
+  filterSectionTitle: {
+    fontSize: moderateScale(14),
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  filterChip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: LAYOUT.borderRadius.full,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  filterChipActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: HS_COLORS.primary,
+  },
+  filterChipText: {
+    fontSize: moderateScale(13),
+    color: '#475569',
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: HS_COLORS.primary,
+    fontWeight: '700',
+  },
+  filterSectionDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: SPACING.sm,
+  },
+  verifyToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: HS_COLORS.primary,
+    borderColor: HS_COLORS.primary,
+  },
+  checkmark: {
+    color: '#FFF',
+    fontSize: moderateScale(14),
+    fontWeight: 'bold',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  resetBtn: {
+    flex: 1,
+    padding: SPACING.md,
+    borderRadius: LAYOUT.borderRadius.md,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  resetBtnText: {
+    color: '#64748B',
+    fontSize: moderateScale(14),
+    fontWeight: '700',
+  },
+  applyBtn: {
+    flex: 2,
+    padding: SPACING.md,
+    borderRadius: LAYOUT.borderRadius.md,
+    backgroundColor: HS_COLORS.primary,
+    alignItems: 'center',
+  },
+  applyBtnText: {
+    color: '#FFF',
+    fontSize: moderateScale(14),
+    fontWeight: '700',
   },
 });
 

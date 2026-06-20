@@ -532,13 +532,13 @@ if (response?.status === 'success') {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
       >
         {/* Fixed Header */}
-        <View style={styles.fixedHeader}>
+        {/* <View style={styles.fixedHeader}>
           {from !== 'edit' && from !== 'myself' && (
             <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
               <Text style={styles.skipText}>{t('skip')}</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </View> */}
 
         {/* Scrollable Content */}
         <ScrollView
