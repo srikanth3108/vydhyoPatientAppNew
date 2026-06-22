@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -67,6 +67,12 @@ const HomeServices: React.FC = () => {
   const lang = user?.appLanguage || 'en';
   const t = translations[lang] || translations.en;
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
+
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,8 +85,8 @@ const HomeServices: React.FC = () => {
     verifiedOnly: false,
   });
 
-  const filteredRoles = roles.filter(role => 
-    role.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredRoles = roles.filter(role =>
+    role.toLowerCase().includes(searchQuery.toLowerCase()) ||
     getRoleTagline(role).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -111,7 +117,7 @@ const HomeServices: React.FC = () => {
 
   const renderitems = ({ item: role }: { item: string }) => (
     <TouchableOpacity
-      activeOpacity={0.9}
+      activeOpacity={0.85}
       style={styles.gridItem}
       onPress={() =>
         navigation.navigate('HomeServiceProviders', {
@@ -120,50 +126,30 @@ const HomeServices: React.FC = () => {
         })
       }
     >
-      <View style={[hsStyles.card, styles.categoryCard, { marginBottom: 0 }]}>
-        <View
-          style={[
-            styles.plainCard,
-            { backgroundColor: getGradientColor(role) },
-          ]}
-        >
-          <View style={styles.cardTopRow}>
-            <View style={styles.emojiBadge}>
-              <Text style={styles.emoji}>{getRoleEmoji(role)}</Text>
-            </View>
-
-            <View
-              style={[
-                hsStyles.badge,
-                {
-                  backgroundColor: 'rgba(255,255,255,0.25)',
-                  paddingHorizontal: SPACING.xs,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  hsStyles.badgeText,
-                  { color: '#FFF' },
-                ]}
-              >
-                View {t.providers}
-              </Text>
-            </View>
+      <View style={styles.premiumCard}>
+        <View style={styles.cardTopRow}>
+          <View style={[styles.premiumEmojiBadge, { backgroundColor: getGradientColor(role) + '20' }]}>
+            <Text style={styles.emoji}>{getRoleEmoji(role)}</Text>
           </View>
-
-          <View style={{ flex: 1, justifyContent: 'flex-end', marginBottom: SPACING.xs }}>
-            <Text style={styles.catTitle} numberOfLines={1}>
-              {capitalizeFirstLetter(role)}
-            </Text>
-            <Text style={styles.catTaglineLight} numberOfLines={2}>
-              {getRoleTagline(role)}
-            </Text>
+          <View style={styles.premiumBadge}>
+            <Text style={styles.premiumBadgeText}>View {t.providers}</Text>
           </View>
+        </View>
 
-          <Text style={styles.exploreText}>
-            {t.explore} →
+        <View style={{ flex: 1, marginTop: SPACING.sm, justifyContent: 'center' }}>
+          <Text style={styles.premiumCatTitle} numberOfLines={1}>
+            {capitalizeFirstLetter(role)}
           </Text>
+          <Text style={styles.premiumCatTagline} numberOfLines={2}>
+            {getRoleTagline(role)}
+          </Text>
+        </View>
+
+        <View style={styles.exploreRow}>
+          <Text style={[styles.premiumExploreText, { color: getGradientColor(role) }]}>
+            {t.explore}
+          </Text>
+          <Text style={[styles.premiumExploreIcon, { color: getGradientColor(role) }]}>→</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -179,19 +165,46 @@ const HomeServices: React.FC = () => {
 
   return (
     <View style={hsStyles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={HS_COLORS.gradientStart} />
+      <StatusBar barStyle="light-content" backgroundColor="#0B2447" />
 
       <View style={styles.heroGradient}>
-        <Text style={hsStyles.heroTitle}>{t.homeServices}</Text>
-        <Text style={hsStyles.heroSubtitle}>{t.subtitle}</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statPill}>
-            <Text style={styles.statValue}>31+</Text>
-            <Text style={styles.statLabel}>Verified providers</Text>
-          </View>
-          <View style={styles.statPill}>
-            <Text style={styles.statValue}>4.8★</Text>
-            <Text style={styles.statLabel}>Avg. rating</Text>
+        {/* Premium Faux Gradient Details */}
+        <View style={styles.heroDeco1} />
+        <View style={styles.heroDeco2} />
+        <View style={styles.headerTopRow}>  
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.backButtonIcon}>←</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ position: 'relative', zIndex: 10 }}>
+          <Text style={styles.premiumHeroTitle}>{t.homeServices}</Text>
+          <Text style={styles.premiumHeroSubtitle}>{t.subtitle}</Text>
+          {/* <View style={styles.statsRow}> */}
+          {/* <View style={styles.statPill}>
+              <Text style={styles.statValue}>31+</Text>
+              <Text style={styles.statLabel}>Verified providers</Text>
+            </View>
+            <View style={styles.statPill}>
+              <Text style={styles.statValue}>4.8★</Text>
+              <Text style={styles.statLabel}>Avg. rating</Text>
+            </View> */}
+          {/* </View> */}
+          <View style={styles.floatingSearchContainer}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search services..."
+              placeholderTextColor="#94A3B8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <TouchableOpacity onPress={() => setShowFilterModal(true)}>
+              <Text style={styles.filterIcon}>⚙️</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -222,20 +235,7 @@ const HomeServices: React.FC = () => {
           ]}
           ListHeaderComponent={
             <>
-              <View style={styles.searchContainer}>
-                <Text style={styles.searchIcon}>🔍</Text>
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search services..."
-                  placeholderTextColor="#94A3B8"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                <TouchableOpacity onPress={() => setShowFilterModal(true)}>
-                  <Text style={styles.filterIcon}>⚙️</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={hsStyles.sectionTitle}>Choose a service</Text>
+              <Text style={styles.premiumSectionTitle}>Choose a service</Text>
               {filteredRoles.length === 0 && (
                 <Text style={styles.emptySearchText}>No services match your search.</Text>
               )}
@@ -301,7 +301,7 @@ const HomeServices: React.FC = () => {
 
             <View style={styles.filterSectionDivider} />
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.verifyToggle}
               activeOpacity={0.7}
               onPress={() => setFilters({ ...filters, verifiedOnly: !filters.verifiedOnly })}
@@ -313,13 +313,13 @@ const HomeServices: React.FC = () => {
             </TouchableOpacity>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.resetBtn}
                 onPress={() => setFilters({ gender: 'Any', minRating: 0, minExperience: 0, verifiedOnly: false })}
               >
                 <Text style={styles.resetBtnText}>Reset</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.applyBtn}
                 onPress={() => setShowFilterModal(false)}
               >
@@ -405,58 +405,115 @@ const styles = StyleSheet.create({
   },
   heroGradient: {
     paddingHorizontal: isTablet ? SPACING.lg : SPACING.md,
-    paddingTop: verticalScale(8),
-    paddingBottom: verticalScale(20),
+    paddingTop: verticalScale(40), // Adjusted for status bar if needed, or safe area
+    paddingBottom: verticalScale(28), // Reduced padding
     borderBottomLeftRadius: LAYOUT.borderRadius.xl,
     borderBottomRightRadius: LAYOUT.borderRadius.xl,
-    backgroundColor: HS_COLORS.gradientStart,
+    backgroundColor: '#0B2447', // Deep Premium Navy
+    position: 'relative',
+    overflow: 'hidden',
   },
-  cardImageOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    padding: SPACING.md,
-    borderRadius: LAYOUT.borderRadius.lg,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    zIndex: 20,
+  },
+  backButton: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  backButtonIcon: {
+    color: '#FFFFFF',
+    fontSize: moderateScale(18),
+    fontWeight: 'bold',
+  },
+  heroDeco1: {
+    position: 'absolute',
+    top: -50,
+    right: -30,
+    width: moderateScale(180),
+    height: moderateScale(180),
+    borderRadius: moderateScale(90),
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  heroDeco2: {
+    position: 'absolute',
+    bottom: -60,
+    left: -20,
+    width: moderateScale(220),
+    height: moderateScale(220),
+    borderRadius: moderateScale(110),
+    backgroundColor: 'rgba(16, 185, 129, 0.1)', // Soft emerald tint
+  },
+  premiumHeroTitle: {
+    fontSize: moderateScale(26),
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+    marginBottom: SPACING.xxs,
+  },
+  premiumHeroSubtitle: {
+    fontSize: moderateScale(14),
+    color: 'rgba(255,255,255,0.85)',
+    lineHeight: moderateScale(20),
+    fontWeight: '500',
   },
   statsRow: {
     flexDirection: 'row',
-    marginTop: SPACING.md,
-    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    gap: SPACING.md,
   },
   statPill: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: LAYOUT.borderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: LAYOUT.borderRadius.lg,
     padding: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   statValue: {
     color: '#FFFFFF',
-    fontSize: moderateScale(16),
-    fontWeight: '700',
+    fontSize: moderateScale(18),
+    fontWeight: '800',
   },
   statLabel: {
     color: 'rgba(255,255,255,0.8)',
     fontSize: moderateScale(11),
+    fontWeight: '600',
     marginTop: 2,
   },
   list: {
-    paddingTop: SPACING.md,
+    paddingTop: 0,
   },
-  searchContainer: {
+  floatingSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    marginBottom: SPACING.md,
-    borderRadius: LAYOUT.borderRadius.md,
-    paddingHorizontal: SPACING.md,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    marginTop: moderateScale(15), // Pull up into hero
+    // marginBottom: SPACING.md, // Reduced margin
+    borderRadius: moderateScale(24),
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 4,
+    // ...LAYOUT.shadow.lg,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
   },
   searchInput: {
     flex: 1,
-    height: 48,
+    height: 50,
     fontSize: moderateScale(14),
     color: '#1E293B',
+    fontWeight: '500',
   },
   searchIcon: {
     fontSize: moderateScale(16),
@@ -474,6 +531,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: SPACING.lg,
   },
+  premiumSectionTitle: {
+    fontSize: moderateScale(17),
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: moderateScale(15),
+    marginBottom: SPACING.md,
+  },
   columnWrapper: {
     justifyContent: 'space-between',
     marginBottom: SPACING.md,
@@ -481,63 +545,72 @@ const styles = StyleSheet.create({
   gridItem: {
     flex: 0.485,
   },
-  categoryCard: {
-    padding: 0,
-    overflow: 'hidden',
-  },
-  cardImage: {
-    height: verticalScale(160),
-    justifyContent: 'flex-end',
-  },
-  cardImageRadius: {
+  premiumCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: LAYOUT.borderRadius.lg,
-  },
-  plainCard: {
     padding: SPACING.md,
-    borderRadius: LAYOUT.borderRadius.lg,
-    height: verticalScale(160),
-    justifyContent: 'space-between',
+    height: verticalScale(170),
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: SPACING.xxl,
   },
-  emojiBadge: {
-    width: moderateScale(36),
-    height: moderateScale(36),
-    borderRadius: moderateScale(9),
-    backgroundColor: 'rgba(255,255,255,0.95)',
+  premiumEmojiBadge: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(12),
     alignItems: 'center',
     justifyContent: 'center',
   },
   emoji: {
-    fontSize: moderateScale(18),
+    fontSize: moderateScale(20),
   },
-  catTitle: {
-    color: '#FFFFFF',
-    fontSize: moderateScale(15),
+  premiumBadge: {
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: LAYOUT.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  premiumBadgeText: {
+    fontSize: moderateScale(9),
     fontWeight: '700',
+    color: '#64748B',
   },
-  catTagline: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: moderateScale(11),
-    marginTop: SPACING.xxs,
+  premiumCatTitle: {
+    color: '#0F172A',
+    fontSize: moderateScale(15),
+    fontWeight: '800',
+    marginBottom: 4,
   },
-  catTaglineLight: {
-    color: 'rgba(255,255,255,0.9)',
+  premiumCatTagline: {
+    color: '#64748B',
     fontSize: moderateScale(11),
-    marginTop: SPACING.xxs,
-    marginBottom: SPACING.xxs,
+    lineHeight: moderateScale(15),
+    fontWeight: '500',
   },
   exploreRow: {
-    marginTop: SPACING.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.sm,
   },
-  exploreText: {
-    color: '#FFFFFF',
+  premiumExploreText: {
     fontSize: moderateScale(12),
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  premiumExploreIcon: {
+    fontSize: moderateScale(14),
+    fontWeight: '700',
+    marginLeft: 4,
   },
   modalOverlay: {
     flex: 1,

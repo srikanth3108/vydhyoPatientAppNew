@@ -151,12 +151,16 @@ const HomeServiceReviewPay: React.FC = () => {
 
   const formatDate = (d: string) => moment(d).format('dddd, DD MMM YYYY');
 
-  const addressLines = [
+  const cityStatePin = `${formData.cityState} - ${formData.pincode}`;
+  const cityOnly = formData.cityState?.split(',')[0]?.trim() || '';
+  const includeCityState = cityOnly && !formData.street?.includes(cityOnly);
+
+  const addressLines = Array.from(new Set([
     [formData.building, formData.floorFlat].filter(Boolean).join(', '),
     formData.street,
     formData.landmark,
-    `${formData.cityState} - ${formData.pincode}`,
-  ].filter(Boolean);
+    includeCityState ? cityStatePin : '',
+  ].filter(Boolean)));
 
   // ─── Check previous appointments (for referral) ──
   useEffect(() => {
@@ -492,9 +496,8 @@ const HomeServiceReviewPay: React.FC = () => {
           city: formData.cityState?.split(',')[0]?.trim() || '',
           state: formData.cityState?.split(',')[1]?.trim() || '',
           country: 'India',
-          pincode: formData.pincode || '',
-          latitude: 0,
-          longitude: 0,
+          zipcode: formData.pincode,
+          fullAddress: Array.from(new Set([formData.building, formData.floorFlat, formData.street, formData.landmark].filter(Boolean))).join(', '),
         },
         paymentMethod: paymentMethod === 'wallet' ? 'wallet' : 'upi',
         amount: Math.round(upiAmount > 0 ? upiAmount : serviceFee),

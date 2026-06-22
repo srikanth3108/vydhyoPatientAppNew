@@ -275,10 +275,10 @@ const HomeServiceSlotSelection: React.FC = () => {
               ) : (
                 <View style={styles.summaryCard}>
                   <View style={hsStyles.avatar}>
-                    <Text style={hsStyles.avatarText}>{providerMock?.providerName || 'P'}</Text>
+                    <Text style={hsStyles.avatarText}>{providerMock?.name?.charAt(0)?.toUpperCase() || 'P'}</Text>
                   </View>
                   <View style={{ flex: 1, marginLeft: SPACING.sm }}>
-                    <Text style={styles.summaryName}>{providerMock?.providerName}</Text>
+                    <Text style={styles.summaryName}>{providerMock?.name}</Text>
                   </View>
                   <View style={styles.categoryPill}>
                     {/* <Text style={styles.categoryPillText}>{category?.emoji || '🏠'} Home</Text> */}

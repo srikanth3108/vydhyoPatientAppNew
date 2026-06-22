@@ -83,7 +83,7 @@ const HomeServiceAddress: React.FC = () => {
             const first = res.data[0];
 
             setForm({
-              building: first.address || '',
+              building: '',
               floorFlat: '',
               street: first.address || '',
               landmark: '',
@@ -180,6 +180,12 @@ const HomeServiceAddress: React.FC = () => {
       Alert.alert('Validation Error', 'Please fill out all required fields correctly.');
       return false;
     }
+
+    if (!form.latitude || !form.longitude) {
+      Alert.alert('Location Required', 'Please use the "Locate on Map / Use GPS" button to set your exact location before proceeding.');
+      return false;
+    }
+    
     return true;
   };
 
@@ -193,7 +199,7 @@ const HomeServiceAddress: React.FC = () => {
         const token = await AsyncStorage.getItem('authToken');
         const payload = {
           type: "Home",
-          address: `${form.building} ${form.floorFlat ? form.floorFlat : ''} ${form.street} ${form.landmark ? form.landmark : ''}`.trim(),
+          address: Array.from(new Set([form.building, form.floorFlat, form.street, form.landmark].filter(Boolean))).join(', '),
           city: form.cityState.split(',')[0]?.trim() || '',
           state: form.cityState.split(',')[1]?.trim() || form.cityState.split(',')[0]?.trim() || '',
           country: "India",
@@ -274,7 +280,7 @@ const HomeServiceAddress: React.FC = () => {
                   style={[styles.savedCard, selectedAddressId === addr.addressId && styles.savedCardActive]}
                   onPress={() => {
                     setForm({
-                      building: addr.address || '',
+                      building: '',
                       floorFlat: '',
                       street: addr.address || '',
                       landmark: '',
@@ -295,7 +301,7 @@ const HomeServiceAddress: React.FC = () => {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.savedLabel}>{addr.type || 'Home'}</Text>
                       <Text style={styles.savedAddressText} numberOfLines={2}>
-                        {addr.address}, {addr.city} {addr.pincode}
+                        {addr.address}{addr.city && !addr.address?.includes(addr.city) ? `, ${addr.city} ${addr.pincode || ''}` : ''}
                       </Text>
                     </View>
                     <View style={[styles.radioBtn, selectedAddressId === addr.addressId && styles.radioBtnActive]}>

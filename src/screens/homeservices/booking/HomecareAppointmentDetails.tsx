@@ -207,8 +207,6 @@ const HomecareAppointmentDetails: React.FC<HomecareAppointmentDetailsProps> = ({
   const lang: Lang = normalizeLang(languageParam || currentUser?.appLanguage);
   const t = translations[lang];
 
-  console.log('appointmentroute', appointment);
-
   const navigation = useNavigation<HomecareAppointmentDetailsScreenNavigationProp>();
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
@@ -435,7 +433,6 @@ const HomecareAppointmentDetails: React.FC<HomecareAppointmentDetailsProps> = ({
         };
         const response = await SubmitProviderRating(appointment?.appointmentId, body);
         if (response?.success) {
-          console.log(response, 'feedback response');
           setFeedback('');
           setRating(0);
           Alert.alert(
@@ -457,7 +454,6 @@ const HomecareAppointmentDetails: React.FC<HomecareAppointmentDetailsProps> = ({
         };
         const response: any = await AuthPost(ENDPOINTS.ADD_FEEDBACK, body, token);
         if (response?.status === 'success') {
-          console.log(response, 'feedback response');
           setFeedback('');
           setRating(0);
           Alert.alert(
@@ -474,7 +470,6 @@ const HomecareAppointmentDetails: React.FC<HomecareAppointmentDetailsProps> = ({
         }
       }
     } catch (error) {
-      console.log(error, 'feedback error');
       Alert.alert('error');
     }
   };
