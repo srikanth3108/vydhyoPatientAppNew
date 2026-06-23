@@ -16,6 +16,7 @@ import { CFEnvironment, CFSession } from 'cashfree-pg-api-contract';
 import { CFPaymentGatewayService } from 'react-native-cashfree-pg-sdk';
 import { RootStackParamList } from '../../../navigation/navigationTypes';
 import { verifyProviderAppointmentPayment } from '../../../services/homeCareService';
+import { verifyRentalOrderPayment } from '../../../services/rentalService';
 import {
   PaymentStateManager,
   PaymentErrorCategorizer,
@@ -45,7 +46,10 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
     address,
     reason,
     appointmentDetails,
+    productId, // Rental specific
   } = route.params as any;
+
+  const isRental = !!productId;
 
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -158,20 +162,25 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
       
       // Navigate to payment failed screen with retry option
       setTimeout(() => {
-        navigation.replace('HomeServicePaymentFailed', {
-          appointmentDetails,
-          categoryId,
-          providerId,
-          date,
-          time,
-          patient,
-          address,
-          reason,
-          paymentSessionId: payment_session_id,
-          orderId: order_id,
-          errorType,
-          errorMessage: message,
-        });
+        if (isRental) {
+          Alert.alert('Payment Error', message);
+          navigation.goBack();
+        } else {
+          navigation.replace('HomeServicePaymentFailed', {
+            appointmentDetails,
+            categoryId,
+            providerId,
+            date,
+            time,
+            patient,
+            address,
+            reason,
+            paymentSessionId: payment_session_id,
+            orderId: order_id,
+            errorType,
+            errorMessage: message,
+          });
+        }
       }, 2000);
     }
   };
@@ -184,7 +193,9 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
       await PaymentStateManager.updatePaymentStatus(PaymentStatus.VERIFYING);
 
       // Call backend to verify payment
-      const verifyResult = await verifyProviderAppointmentPayment(verifiedOrderId);
+      const verifyResult = isRental
+        ? await verifyRentalOrderPayment(verifiedOrderId)
+        : await verifyProviderAppointmentPayment(verifiedOrderId);
 
       if (verifyResult.success && verifyResult.data) {
         await PaymentStateManager.updatePaymentStatus(PaymentStatus.SUCCESS);
@@ -195,21 +206,27 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
           text2: `Order: ${verifiedOrderId}`,
         });
 
-        // Navigate to confirmation screen with appointment details
-        navigation.replace('HomeServiceBookingConfirmation', {
-          orderID: verifiedOrderId,
-          platformFee: appointmentDetails?.platformFee || 0,
-          selectedOption: 'gateway',
-          categoryId,
-          providerId,
-          date,
-          time,
-          patient,
-          address,
-          reason,
-          paymentStatus: 'success',
-          appointmentId: appointmentDetails?.appointmentId,
-        });
+        if (isRental) {
+          navigation.replace('RentalOrderConfirmation', {
+            orderId: verifiedOrderId,
+          });
+        } else {
+          // Navigate to confirmation screen with appointment details
+          navigation.replace('HomeServiceBookingConfirmation', {
+            orderID: verifiedOrderId,
+            platformFee: appointmentDetails?.platformFee || 0,
+            selectedOption: 'gateway',
+            categoryId,
+            providerId,
+            date,
+            time,
+            patient,
+            address,
+            reason,
+            paymentStatus: 'success',
+            appointmentId: appointmentDetails?.appointmentId,
+          });
+        }
 
         // Clear payment state after success
         await PaymentStateManager.clearPaymentState();
@@ -236,20 +253,25 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
 
         // Navigate to payment failed screen
         setTimeout(() => {
-          navigation.replace('HomeServicePaymentFailed', {
-            appointmentDetails,
-            categoryId,
-            providerId,
-            date,
-            time,
-            patient,
-            address,
-            reason,
-            paymentSessionId: payment_session_id,
-            orderId: verifiedOrderId,
-            errorType: errorType,
-            errorMessage: message,
-          });
+          if (isRental) {
+            Alert.alert('Verification Failed', message);
+            navigation.goBack();
+          } else {
+            navigation.replace('HomeServicePaymentFailed', {
+              appointmentDetails,
+              categoryId,
+              providerId,
+              date,
+              time,
+              patient,
+              address,
+              reason,
+              paymentSessionId: payment_session_id,
+              orderId: verifiedOrderId,
+              errorType: errorType,
+              errorMessage: message,
+            });
+          }
         }, 2000);
       }
     } catch (error: any) {
@@ -271,20 +293,25 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
       isVerifyingRef.current = false;
 
       setTimeout(() => {
-        navigation.replace('HomeServicePaymentFailed', {
-          appointmentDetails,
-          categoryId,
-          providerId,
-          date,
-          time,
-          patient,
-          address,
-          reason,
-          paymentSessionId: payment_session_id,
-          orderId: order_id,
-          errorType,
-          errorMessage: message,
-        });
+        if (isRental) {
+          Alert.alert('Verification Error', message);
+          navigation.goBack();
+        } else {
+          navigation.replace('HomeServicePaymentFailed', {
+            appointmentDetails,
+            categoryId,
+            providerId,
+            date,
+            time,
+            patient,
+            address,
+            reason,
+            paymentSessionId: payment_session_id,
+            orderId: order_id,
+            errorType,
+            errorMessage: message,
+          });
+        }
       }, 2000);
     } finally {
       setProcessing(false);
@@ -316,20 +343,25 @@ const HomeServicePaymentGateway: React.FC<HomeServicePaymentGatewayProps> = ({ r
 
     // Navigate to payment failed screen with retry option
     setTimeout(() => {
-      navigation.replace('HomeServicePaymentFailed', {
-        appointmentDetails,
-        categoryId,
-        providerId,
-        date,
-        time,
-        patient,
-        address,
-        reason,
-        paymentSessionId: payment_session_id,
-        orderId: errorOrderId || order_id,
-        errorType,
-        errorMessage: message,
-      });
+      if (isRental) {
+        Alert.alert('Payment Failed', message);
+        navigation.goBack();
+      } else {
+        navigation.replace('HomeServicePaymentFailed', {
+          appointmentDetails,
+          categoryId,
+          providerId,
+          date,
+          time,
+          patient,
+          address,
+          reason,
+          paymentSessionId: payment_session_id,
+          orderId: errorOrderId || order_id,
+          errorType,
+          errorMessage: message,
+        });
+      }
     }, 1500);
   };
 

@@ -118,6 +118,8 @@ const RentalReviewPay: React.FC = () => {
     try {
       const orderData = {
         patientId: user?.userId || 'VYDUSER1001',
+        userId: user?.userId || 'VYDUSER1001',
+        amount: total,
         productId,
         duration: {
           type: billingUnit,
@@ -148,7 +150,7 @@ const RentalReviewPay: React.FC = () => {
       
       const paymentSessionData = extractPaymentSessionFromResponse(response);
       if (paymentSessionData) {
-        navigation.replace('RentalPaymentGateway', {
+        navigation.replace('HomeServicePaymentGateway', {
           payment_session_id: paymentSessionData.payment_session_id,
           order_id: paymentSessionData.order_id,
           productId,

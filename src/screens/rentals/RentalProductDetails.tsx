@@ -45,6 +45,7 @@ const RentalProductDetails: React.FC = () => {
   const [qty, setQty] = useState(4);
   const [livePricing, setLivePricing] = useState<any>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   React.useEffect(() => {
     const fetchProduct = async () => {
@@ -86,10 +87,10 @@ const RentalProductDetails: React.FC = () => {
 
   const rate =
     billingUnit === 'hours'
-      ? product?.hourlyRate ?? 0
+      ? product?.rates?.hourly ?? product?.hourlyRate ?? 0
       : billingUnit === 'days'
-        ? product?.dailyRate ?? 0
-        : (product?.dailyRate ?? 0) * 30;
+        ? product?.rates?.daily ?? product?.dailyRate ?? 0
+        : product?.rates?.monthly ?? (product?.dailyRate ?? 0) * 30;
   const baseAmount = livePricing?.rentalAmount ?? (rate * qty);
   const maxQty = billingUnit === 'hours' ? 12 : billingUnit === 'days' ? 14 : 12;
 
@@ -116,16 +117,27 @@ const RentalProductDetails: React.FC = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.heroCard}>
-          <Image source={{ uri: product.imageUrl || 'https://vydhyo-assets.s3.amazonaws.com/products/dummy-prod-image.png' }} style={styles.heroImage} />
+          {imgError || !product.imageUrl ? (
+            <View style={[styles.heroImage, styles.fallbackContainer]}>
+              <Text style={styles.fallbackEmoji}>📦</Text>
+            </View>
+          ) : (
+            <Image
+              source={{ uri: product.imageUrl }}
+              style={styles.heroImage}
+              resizeMode="contain"
+              onError={() => setImgError(true)}
+            />
+          )}
           <View style={styles.heroRight}>
             <Text style={styles.name}>{product.name}</Text>
-            <Text style={styles.short}>{product.description}</Text>
+            <Text style={styles.short}>{product.about || product.description}</Text>
             <View style={styles.badgesRow}>
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>★ {product.rating}</Text>
               </View>
               <View style={styles.badgeSoft}>
-                <Text style={styles.badgeSoftText}>{product.reviewCount} reviews</Text>
+                <Text style={styles.badgeSoftText}>{product.reviewsCount || product.reviewCount || 0} reviews</Text>
               </View>
               <View
                 style={[
@@ -221,14 +233,14 @@ const RentalProductDetails: React.FC = () => {
 
           <View style={styles.finePrint}>
             <Text style={styles.finePrintText}>
-              Deposit ₹{livePricing?.depositAmount ?? product?.deposit ?? 0} {product?.refundableDeposit ? '(refundable)' : ''} · Delivery ₹{livePricing?.deliveryFee ?? product?.deliveryFee ?? 0}
+              Deposit ₹{livePricing?.depositAmount ?? product?.refundableDeposit ?? product?.deposit ?? 0} (refundable) · Delivery ₹{livePricing?.deliveryFee ?? product?.deliveryFee ?? 0}
             </Text>
           </View>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>About</Text>
-          <Text style={styles.body}>{product.description}</Text>
+          <Text style={styles.body}>{product.about || product.description || 'No description provided.'}</Text>
         </View>
 
         <View style={styles.card}>
@@ -239,37 +251,61 @@ const RentalProductDetails: React.FC = () => {
                 <Text style={styles.chipText}>✓ {h}</Text>
               </View>
             ))}
+            {!(product.highlights?.length) && <Text style={styles.listItem}>No highlights listed</Text>}
           </View>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Specifications</Text>
           <View style={styles.specGrid}>
+            {/* New schema: object */}
+            {product.specifications && Object.entries(product.specifications).map(([key, value]) => {
+              if (value === '' || value === null || value === undefined) return null;
+              const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+              return (
+                <View key={key} style={styles.specCard}>
+                  <Text style={styles.specLabel}>{label}</Text>
+                  <Text style={styles.specValue}>{String(value)}</Text>
+                </View>
+              );
+            })}
+            
+            {/* Fallback for old schema: array */}
             {(product.specs || []).map((s: any) => (
               <View key={s.label} style={styles.specCard}>
                 <Text style={styles.specLabel}>{s.label}</Text>
                 <Text style={styles.specValue}>{s.value}</Text>
               </View>
             ))}
+            
+            {(!product.specifications || Object.values(product.specifications).every(v => !v)) && !(product.specs?.length) && (
+              <Text style={styles.listItem}>No specifications listed</Text>
+            )}
           </View>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>What’s included</Text>
-          {(product.included || []).map((it: string) => (
+          {(product.whatsIncluded || product.included || []).map((it: string) => (
             <Text key={it} style={styles.listItem}>
               • {it}
             </Text>
           ))}
+          {(!product.whatsIncluded?.length && !product.included?.length) && (
+            <Text style={styles.listItem}>No items listed</Text>
+          )}
         </View>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Safety & hygiene</Text>
-          {(product.safety || []).map((it: string) => (
+          {(product.safetyAndHygiene || product.safety || []).map((it: string) => (
             <Text key={it} style={styles.listItem}>
               • {it}
             </Text>
           ))}
+          {(!product.safetyAndHygiene?.length && !product.safety?.length) && (
+             <Text style={styles.listItem}>Standard safety protocols apply</Text>
+          )}
         </View>
 
         <View style={{ height: moderateScale(96) }} />
@@ -325,6 +361,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   heroImage: { width: moderateScale(92), height: moderateScale(92) },
+  fallbackContainer: {
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fallbackEmoji: {
+    fontSize: moderateScale(32),
+  },
   heroRight: { flex: 1, padding: SPACING.md },
   name: { fontSize: moderateScale(16), fontWeight: '900', color: '#0F172A' },
   short: { marginTop: 4, fontSize: moderateScale(12), color: '#475569', lineHeight: moderateScale(16) },

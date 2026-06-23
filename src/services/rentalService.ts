@@ -25,6 +25,18 @@ export const getRentalProducts = async (categoryId?: string, search?: string) =>
   }
 };
 
+export const getRentalMerchantsByProduct = async (productName: string) => {
+  try {
+    const response = await server.get(ENDPOINTS.GET_RENTAL_MERCHANTS_BY_PRODUCT(productName), {
+      requiresAuth: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching rental merchants by product:', error);
+    throw error;
+  }
+};
+
 export const getRentalProductById = async (productId: string) => {
   try {
     const response = await server.get(ENDPOINTS.GET_RENTAL_PRODUCT_DETAILS(productId),
@@ -56,9 +68,22 @@ export const calculateLivePrice = async (productId: string, durationType: string
 
 export const placeRentalOrder = async (orderData: any) => {
   try {
-    const response = await server.post(ENDPOINTS.PLACE_RENTAL_ORDER, orderData,{
+    const response = await server.post(ENDPOINTS.CREATE_PROVIDER_APPOINTMENT, orderData,{
       requiresAuth: true,
     });
+    
+    const result = response.data as any;
+    console.log('✓ Rental Order Creation Response:', result);
+    
+    // Support the new gateway response format like Homecare
+    if (result.status === 'success' && result.data) {
+      return { 
+        data: result.data.orderDetails || result.data.appointmentDetails || result.data,
+        paymentDetails: result.data.paymentDetails,
+        fullResponse: result.data
+      };
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error placing rental order:', error);
@@ -116,7 +141,7 @@ export const getRentalOrderTracking = async (orderId: string) => {
 
 export const verifyRentalOrderPayment = async (orderId: string) => {
   try {
-    const response = await server.post(ENDPOINTS.VERIFY_RENTAL_PAYMENT, { orderId }, {
+    const response = await server.post(ENDPOINTS.PAYMENT_VERIFY, { appointmentId: orderId }, {
       requiresAuth: true,
     });
     return response.data;

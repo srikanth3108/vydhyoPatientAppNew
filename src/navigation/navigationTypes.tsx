@@ -10,7 +10,7 @@ export type RootStackParamList = {
   SelectIssue: undefined;
   HomeServices: undefined;
   RentalCategories: undefined;
-  // RentalAgents: { categoryId: string };
+  RentalAgents: { productName: string };
   RentalsCatalog: { categoryId?: string; agentId?: string } | undefined;
   RentalProductDetails: { productId: string };
   RentalAddress: {

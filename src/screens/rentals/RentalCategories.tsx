@@ -161,7 +161,7 @@ const RentalCategories: React.FC = () => {
       ) : (
         <FlatList
           data={filteredCategories}
-          keyExtractor={item => item.categoryId || item._id}
+          keyExtractor={(item, index) => item.categoryId || item.productId || item._id || index.toString()}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}

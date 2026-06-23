@@ -448,7 +448,7 @@ const HomeScreen: React.FC = () => {
       title.includes('హోమ్‌కేర్ ప్రొడక్ట్స్') ||
       title.includes('होमकेयर उत्पाद')
     ) {
-      navigation.navigate('RentalCategories');
+      navigation.navigate('RentalsCatalog');
     }
     if (
       title.includes('Book Ambulance') ||

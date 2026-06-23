@@ -108,5 +108,5 @@ export const ENDPOINTS = {
   CANCEL_RENTAL_ORDER: (orderId: string) => `rental/patient/rentals/orders/${orderId}/cancel`,
   SCHEDULE_RENTAL_RETURN: (orderId: string) => `rental/patient/rentals/orders/${orderId}/return-pickup`,
   GET_RENTAL_ORDER_TRACKING: (orderId: string) => `rental/patient/rentals/orders/${orderId}/tracking`,
-  VERIFY_RENTAL_PAYMENT: 'rental/patient/rentals/verify-payment',
+  GET_RENTAL_MERCHANTS_BY_PRODUCT: (productName: string) => `rental/merchant/by-product/${encodeURIComponent(productName)}`,
 };
