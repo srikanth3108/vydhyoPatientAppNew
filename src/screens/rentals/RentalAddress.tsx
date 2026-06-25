@@ -37,6 +37,15 @@ type Params = {
   billingUnit: 'hours' | 'days' | 'months';
   quantity: number;
   baseAmount: number;
+  productInfo: {
+    name: string;
+    rating: number;
+    reviewCount: number;
+    availableNow: boolean;
+    etaMinutes: number;
+    deposit: number;
+    deliveryFee: number;
+  };
 };
 
 type NavList = {
@@ -51,25 +60,8 @@ const RentalAddress: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteT>();
   const insets = useSafeAreaInsets();
-  const [product, setProduct] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
-
-  React.useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const res = await getRentalProductById(route.params.productId);
-        if (res?.data) {
-          setProduct(res.data);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProduct();
-  }, [route.params.productId]);
+  const { productInfo } = route.params;
 
   const [useSaved, setUseSaved] = useState(true);
   const saved = useMemo<AddressForm>(
@@ -98,22 +90,6 @@ const RentalAddress: React.FC = () => {
     setUseSaved(false);
     setShowLocationModal(false);
   };
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={HS_COLORS.primary} />
-      </View>
-    );
-  }
-
-  if (!product) {
-    return (
-      <View style={styles.center}>
-        <Text>Product not found</Text>
-      </View>
-    );
-  }
 
   const update = (k: keyof AddressForm, v: string) => {
     setUseSaved(false);
@@ -163,7 +139,7 @@ const RentalAddress: React.FC = () => {
           <View style={styles.banner}>
             <Text style={styles.bannerTitle}>Delivery & setup</Text>
             <Text style={styles.bannerSub}>
-              We’ll deliver {product.name} to your location. Setup help is included where available.
+              We’ll deliver {productInfo.name} to your location. Setup help is included where available.
             </Text>
           </View>
 

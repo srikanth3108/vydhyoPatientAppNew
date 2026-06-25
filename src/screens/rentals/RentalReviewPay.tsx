@@ -37,72 +37,65 @@ type Params = {
   quantity: number;
   baseAmount: number;
   address: AddressForm;
+  productInfo: {
+    name: string;
+    rating: number;
+    reviewCount: number;
+    availableNow: boolean;
+    etaMinutes: number;
+    deposit: number;
+    deliveryFee: number;
+  };
 };
 
 type NavList = {
   RentalReviewPay: Params;
   RentalOrderConfirmation: { orderId: string };
+  HomeServicePaymentGateway: {
+    payment_session_id: string;
+    order_id: string;
+    productId: string;
+    billingUnit: string;
+    quantity: number;
+    baseAmount: number;
+    address: AddressForm;
+  };
 };
 
 type RouteT = RouteProp<NavList, 'RentalReviewPay'>;
 type Nav = StackNavigationProp<NavList, 'RentalReviewPay'>;
-
-const PAYMENT_OPTIONS = [
-  { id: 'upi', label: 'UPI', icon: '📱' },
-  { id: 'card', label: 'Card', icon: '💳' },
-  { id: 'wallet', label: 'Wallet', icon: '👛' },
-] as const;
 
 const RentalReviewPay: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteT>();
   const insets = useSafeAreaInsets();
 
-  const { productId, billingUnit, quantity, baseAmount, address } = route.params;
+  const { productId, billingUnit, quantity, baseAmount, address, productInfo } = route.params;
   const user: any = useSelector((state: any) => state.currentUser);
-  
-  const [product, setProduct] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const res = await getRentalProductById(productId);
-        if (res?.data) {
-          setProduct(res.data);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProduct();
-  }, [productId]);
-
-  const [method, setMethod] = useState<(typeof PAYMENT_OPTIONS)[number]['id']>('upi');
-  const [paying, setPaying] = useState(false);
-
-  const deposit = product?.deposit ?? 0;
-  const delivery = product?.deliveryFee ?? 0;
+  const deposit = productInfo.deposit ?? 0;
+  const delivery = productInfo.deliveryFee ?? 0;
   const platformFee = Math.max(19, Math.round(baseAmount * 0.02));
   const total = useMemo(() => baseAmount + deposit + delivery + platformFee, [baseAmount, deposit, delivery, platformFee]);
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={HS_COLORS.primary} />
-      </View>
-    );
-  }
+  const userWallet = useSelector((s: any) => s.userWallet);
+  const [useWallet, setUseWallet] = useState(false);
+  const walletBalance = userWallet?.balance || 0;
+  const hasWalletBalance = walletBalance > 0;
 
-  if (!product) {
-    return (
-      <View style={styles.center}>
-        <Text>Product not found</Text>
-      </View>
-    );
-  }
+  const { walletDeduction, upiAmount } = useMemo(() => {
+    let walletDeduction = 0;
+    let upiAmount = total;
+
+    if (useWallet && walletBalance > 0) {
+      walletDeduction = Math.min(walletBalance, total);
+      upiAmount = Math.max(total - walletDeduction, 0);
+    }
+
+    return { walletDeduction, upiAmount };
+  }, [total, useWallet, walletBalance]);
+
+  const [paying, setPaying] = useState(false);
 
   const addressLines = [
     address.fullName,
@@ -117,9 +110,7 @@ const RentalReviewPay: React.FC = () => {
     setPaying(true);
     try {
       const orderData = {
-        patientId: user?.userId || 'VYDUSER1001',
-        userId: user?.userId || 'VYDUSER1001',
-        amount: total,
+        patientId: user?.userId,
         productId,
         duration: {
           type: billingUnit,
@@ -127,7 +118,7 @@ const RentalReviewPay: React.FC = () => {
         },
         shippingAddress: {
           fullName: address.fullName,
-          phone: address.phone,
+          phone: address.phone.replace(/[^0-9]/g, '').slice(-10),
           building: address.building,
           street: address.street,
           landmark: address.landmark || '',
@@ -142,14 +133,14 @@ const RentalReviewPay: React.FC = () => {
           platformFee: platformFee,
           totalPayable: total,
           currency: 'INR'
-        },
-        paymentMethod: method,
+        }
       };
 
+      console.log(',,,mmmmmm',orderData)
       const response = await placeRentalOrder(orderData);
       
       const paymentSessionData = extractPaymentSessionFromResponse(response);
-      if (paymentSessionData) {
+      if (paymentSessionData && upiAmount > 0) {
         navigation.replace('HomeServicePaymentGateway', {
           payment_session_id: paymentSessionData.payment_session_id,
           order_id: paymentSessionData.order_id,
@@ -167,26 +158,7 @@ const RentalReviewPay: React.FC = () => {
     } catch (error: any) {
       const msg = error?.response?.data?.message || error?.message || 'Failed to place rental order.';
       
-      // Developer bypass: If backend fails due to Cashfree keys missing, allow bypassing for testing
-      if (msg.includes('gateway') || msg.includes('Payment gateway')) {
-        Alert.alert(
-          'Backend Payment Error',
-          'The server failed to initialize the payment gateway. Would you like to bypass payment to test the rest of the flow?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Bypass (Test)', 
-              style: 'default',
-              onPress: () => {
-                const orderId = `ORD-TEST-${Date.now().toString().slice(-6)}`;
-                navigation.replace('RentalOrderConfirmation', { orderId });
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Payment Error', msg);
-      }
+      Alert.alert('Payment Error', msg);
       console.error(error);
     } finally {
       setPaying(false);
@@ -203,8 +175,8 @@ const RentalReviewPay: React.FC = () => {
         </View>
 
         <Section title="Product" icon="🧰">
-          <Text style={styles.bold}>{product.name}</Text>
-          <Text style={styles.muted}>★ {product.rating} ({product.reviewCount} reviews)</Text>
+          <Text style={styles.bold}>{productInfo.name}</Text>
+          <Text style={styles.muted}>★ {productInfo.rating} ({productInfo.reviewCount} reviews)</Text>
           <View style={styles.pillsRow}>
             <View style={styles.pillSoft}>
               <Text style={styles.pillSoftText}>
@@ -213,7 +185,7 @@ const RentalReviewPay: React.FC = () => {
             </View>
             <View style={styles.pillSoft}>
               <Text style={styles.pillSoftText}>
-                Delivery {product.availableNow ? `ETA ${product.etaMinutes}m` : 'Scheduled'}
+                Delivery {productInfo.availableNow ? `ETA ${productInfo.etaMinutes}m` : 'Scheduled'}
               </Text>
             </View>
           </View>
@@ -229,7 +201,7 @@ const RentalReviewPay: React.FC = () => {
 
         <Section title="Price summary" icon="🧾">
           <Row label="Rental amount" value={`₹${baseAmount}`} />
-          <Row label={`Deposit ${product.refundableDeposit ? '(refundable)' : ''}`} value={`₹${deposit}`} />
+          <Row label={`Deposit ${productInfo.deposit ? '(refundable)' : ''}`} value={`₹${deposit}`} />
           <Row label="Delivery fee" value={`₹${delivery}`} />
           <Row label="Platform fee" value={`₹${platformFee}`} />
           <View style={styles.totalRow}>
@@ -242,19 +214,45 @@ const RentalReviewPay: React.FC = () => {
         </Section>
 
         <Text style={styles.sectionTitle}>Pay with</Text>
-        <View style={styles.payRow}>
-          {PAYMENT_OPTIONS.map(opt => (
-            <TouchableOpacity
-              key={opt.id}
-              style={[styles.payCard, method === opt.id && styles.payCardActive]}
-              onPress={() => setMethod(opt.id)}
+        <View style={styles.walletSection}>
+          <TouchableOpacity
+            style={styles.walletRow}
+            onPress={() => {
+              if (hasWalletBalance) setUseWallet(prev => !prev);
+            }}
+            activeOpacity={hasWalletBalance ? 0.7 : 1}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                useWallet && hasWalletBalance && styles.checkboxChecked,
+                !hasWalletBalance && styles.checkboxDisabled,
+              ]}
             >
-              <Text style={styles.payIcon}>{opt.icon}</Text>
-              <Text style={[styles.payLabel, method === opt.id && styles.payLabelActive]}>
-                {opt.label}
+              {useWallet && hasWalletBalance && (
+                <Text style={styles.checkboxTick}>✓</Text>
+              )}
+            </View>
+            <View style={styles.walletInfo}>
+              <Text style={[styles.walletLabel, !hasWalletBalance && styles.walletLabelDisabled]}>
+                Use Wallet Balance
               </Text>
-            </TouchableOpacity>
-          ))}
+              <Text style={[styles.walletBalanceText, !hasWalletBalance && styles.walletLabelDisabled]}>
+                {hasWalletBalance ? `Balance: ₹${walletBalance}` : 'No wallet balance available'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {useWallet && hasWalletBalance && walletDeduction > 0 && (
+            <View style={styles.walletBreakdown}>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Wallet deduction</Text>
+                <Text style={[styles.breakdownValue, { color: '#EF4444' }]}>
+                  - ₹{walletDeduction}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={styles.infoBox}>
@@ -278,7 +276,7 @@ const RentalReviewPay: React.FC = () => {
         ]}
       >
         <TouchableOpacity style={styles.cta} onPress={handlePay} disabled={paying}>
-          {paying ? <ActivityIndicator color="#FFF" /> : <Text style={styles.ctaText}>Pay ₹{total}</Text>}
+          {paying ? <ActivityIndicator color="#FFF" /> : <Text style={styles.ctaText}>{upiAmount > 0 ? `Pay ₹${upiAmount}` : 'Pay from Wallet'}</Text>}
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.cancel}
@@ -341,12 +339,20 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: moderateScale(18), fontWeight: '900', color: HS_COLORS.primary },
   disclaimer: { marginTop: SPACING.sm, fontSize: moderateScale(11), color: '#475569', fontWeight: '700' },
   sectionTitle: { marginTop: SPACING.xs, marginBottom: SPACING.sm, fontSize: moderateScale(14), fontWeight: '900', color: '#0F172A' },
-  payRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
-  payCard: { flex: 1, backgroundColor: '#FFF', borderRadius: LAYOUT.borderRadius.md, borderWidth: 1, borderColor: '#E2E8F0', padding: SPACING.md, alignItems: 'center' },
-  payCardActive: { borderColor: HS_COLORS.primary, backgroundColor: '#EFF6FF' },
-  payIcon: { fontSize: moderateScale(24), marginBottom: 6 },
-  payLabel: { fontSize: moderateScale(12), fontWeight: '900', color: '#64748B' },
-  payLabelActive: { color: HS_COLORS.primary },
+  walletSection: { backgroundColor: '#FFF', borderRadius: LAYOUT.borderRadius.lg, padding: SPACING.md, marginBottom: SPACING.sm, borderWidth: 1, borderColor: HS_COLORS.border },
+  walletRow: { flexDirection: 'row', alignItems: 'center' },
+  checkbox: { width: 22, height: 22, borderWidth: 2, borderColor: HS_COLORS.border, borderRadius: 4, marginRight: SPACING.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
+  checkboxChecked: { backgroundColor: HS_COLORS.primary, borderColor: HS_COLORS.primary },
+  checkboxDisabled: { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' },
+  checkboxTick: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  walletInfo: { flex: 1 },
+  walletLabel: { fontSize: moderateScale(14), fontWeight: '600', color: HS_COLORS.text },
+  walletLabelDisabled: { color: '#94A3B8' },
+  walletBalanceText: { fontSize: moderateScale(11), color: HS_COLORS.textMuted, marginTop: 2 },
+  walletBreakdown: { marginTop: SPACING.sm, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xs },
+  breakdownLabel: { fontSize: moderateScale(12), color: HS_COLORS.textMuted },
+  breakdownValue: { fontSize: moderateScale(12), fontWeight: '500', color: HS_COLORS.text },
   infoBox: { backgroundColor: '#FEF9C3', borderWidth: 1, borderColor: '#FDE047', borderRadius: LAYOUT.borderRadius.md, padding: SPACING.md },
   infoText: { fontSize: moderateScale(12), color: '#854D0E', fontWeight: '800' },
   footer: { paddingHorizontal: isTablet ? SPACING.lg : SPACING.md, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#F0F9F6' },

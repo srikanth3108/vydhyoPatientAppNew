@@ -67,19 +67,26 @@ export const calculateLivePrice = async (productId: string, durationType: string
 };
 
 export const placeRentalOrder = async (orderData: any) => {
+  console.log("orderData@@@@@@@@@",orderData)
   try {
-    const response = await server.post(ENDPOINTS.CREATE_PROVIDER_APPOINTMENT, orderData,{
+    const response = await server.post(ENDPOINTS.PLACE_RENTAL_ORDER, orderData, {
       requiresAuth: true,
+      headers: {
+        userid: orderData.patientId,
+      },
     });
-    
     const result = response.data as any;
     console.log('✓ Rental Order Creation Response:', result);
     
     // Support the new gateway response format like Homecare
-    if (result.status === 'success' && result.data) {
+    if ((result.status === 'success' || result.success === true) && result.data) {
       return { 
         data: result.data.orderDetails || result.data.appointmentDetails || result.data,
-        paymentDetails: result.data.paymentDetails,
+        paymentDetails: result.data.paymentDetails || {
+          payment_session_id: result.data.paymentSessionId || result.data.payment_session_id,
+          order_id: result.data.orderId || result.data.order_id,
+          order_amount: result.data.totalPayable || result.data.order_amount,
+        },
         fullResponse: result.data
       };
     }

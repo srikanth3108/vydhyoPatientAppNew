@@ -25,6 +25,15 @@ type NavList = {
     billingUnit: 'hours' | 'days' | 'months';
     quantity: number;
     baseAmount: number;
+    productInfo?: {
+      name: string;
+      rating: number;
+      reviewCount: number;
+      availableNow: boolean;
+      etaMinutes: number;
+      deposit: number;
+      deliveryFee: number;
+    };
   };
 };
 
@@ -337,6 +346,15 @@ const RentalProductDetails: React.FC = () => {
               billingUnit,
               quantity: qty,
               baseAmount,
+              productInfo: {
+                name: product.name,
+                rating: product.rating || 0,
+                reviewCount: product.reviewCount || product.reviewsCount || 0,
+                availableNow: product.availableNow || false,
+                etaMinutes: product.etaMinutes || 0,
+                deposit: product.refundableDeposit ?? product.deposit ?? 0,
+                deliveryFee: product.deliveryFee ?? 0,
+              }
             })
           }
         >

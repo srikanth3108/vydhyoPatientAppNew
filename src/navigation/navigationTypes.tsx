@@ -18,6 +18,15 @@ export type RootStackParamList = {
     billingUnit: 'hours' | 'days' | 'months';
     quantity: number;
     baseAmount: number;
+    productInfo?: {
+      name: string;
+      rating: number;
+      reviewCount: number;
+      availableNow: boolean;
+      etaMinutes: number;
+      deposit: number;
+      deliveryFee: number;
+    };
   };
   RentalReviewPay: {
     productId: string;
